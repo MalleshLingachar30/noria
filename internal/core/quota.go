@@ -378,7 +378,11 @@ func (s *Scheduler) windowWork(id string, w model.Window) float64 {
 }
 
 type accountStatus struct {
+	Email           string               `json:"email,omitempty"`
+	Alias           string               `json:"alias,omitempty"`
+	DisplayName     string               `json:"display_name"`
 	ID              string               `json:"id"`
+	Label           string               `json:"label"`
 	Provider        string               `json:"provider"`
 	Enabled         bool                 `json:"enabled"`
 	Inflight        int                  `json:"inflight"`
@@ -398,7 +402,7 @@ func (s *Scheduler) Status() any {
 		Accounts []accountStatus `json:"accounts"`
 	}{Bindings: len(s.state.Bindings), Accounts: make([]accountStatus, 0, len(s.accounts))}
 	for _, a := range s.accounts {
-		item := accountStatus{ID: a.ID, Provider: a.Provider, Enabled: a.Enabled, Inflight: s.inflight(a.ID, "")}
+		item := accountStatus{ID: a.ID, Email: a.Email, Alias: a.Alias, DisplayName: a.DisplayName(), Label: a.Label(), Provider: a.Provider, Enabled: a.Enabled, Inflight: s.inflight(a.ID, "")}
 		item.RecentSessions, _ = s.recentDemand(a.ID, "", s.now())
 		if snapshot, ok := s.state.Snapshots[a.ID]; ok {
 			snapshot = cloneSnapshot(snapshot)

@@ -37,7 +37,7 @@ bootstrap:
 	@node scripts/setup.js $(BOOTSTRAP_ARGS)
 
 fmt:
-	@$(GOFMT) -w $$(find . -type f -name '*.go' -not -path './dist/*')
+	@$(GOFMT) -w $$(find cmd internal -type f -name '*.go')
 
 test:
 	@$(GO) test ./...

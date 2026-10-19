@@ -6,16 +6,32 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/http"
-	"os"
+
 	"path/filepath"
 
 	"github.com/amxv/noria/internal/buildinfo"
 	"github.com/amxv/noria/internal/config"
-	"github.com/amxv/noria/internal/model"
+	"github.com/amxv/noria/internal/service"
 )
 
 func Run(args []string, stdout, stderr io.Writer) error {
+	// Global private-home selection also works for credential helpers launched
+	// by GUI clients, which do not inherit a terminal's environment.
+	selectedHome := ""
+	for i := 0; i < len(args); i++ {
+		if args[i] == "--" {
+			break
+		}
+		if args[i] == "--home" {
+			if i+1 >= len(args) {
+				return errors.New("--home requires a directory")
+			}
+			selectedHome = args[i+1]
+			args = append(args[:i], args[i+2:]...)
+			i--
+		}
+	}
+
 	if len(args) == 0 || isHelp(args[0]) {
 		help(stdout)
 		return nil
@@ -25,10 +41,49 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return nil
 	}
 	home, e := config.Home()
+	if selectedHome != "" {
+		home, e = filepath.Abs(selectedHome)
+	}
 	if e != nil {
 		return e
 	}
 	switch args[0] {
+	case "__menubar-reopen":
+		return delayedMenuHome(home)
+	case "__open-menu":
+		if len(args) != 2 {
+			return errors.New("missing app path")
+		}
+		return delayedMenu(args[1])
+	case "__supervise", "__supervisor":
+		return service.Supervise(home)
+	case "__daemon":
+		return serve(home, nil, stdout, stderr)
+	case "__login":
+		c, e := config.Load(home)
+		if e != nil {
+			return e
+		}
+		if !c.StartAtLogin {
+			return nil
+		}
+		return serviceCommand(home, "start", []string{"--json"}, stdout, stderr)
+	case "auth-token":
+		return authCommand(home, []string{"token"}, stdout, stderr)
+	case "auth":
+		return authCommand(home, args[1:], stdout, stderr)
+	case "integrate":
+		return integrateCommand(home, args[1:], stdout, stderr)
+	case "integrations":
+		return integrationsCommand(home, args[1:], stdout)
+	case "preferences", "autostart":
+		return preferencesCommand(home, args[0], args[1:], stdout)
+	case "health":
+		return healthCommand(home, args[1:], stdout)
+	case "menubar":
+		return menubar(home, args[1:], stdout, stderr)
+	case "update":
+		return updateCommand(home, args[1:], stdout, stderr)
 	case "init":
 		if len(args) > 1 && isHelp(args[1]) {
 			fmt.Fprintln(stdout, "Usage: noria init\nCreate a private home and local gateway secret. Existing accounts are preserved.")
@@ -44,8 +99,8 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return nil
 	case "account":
 		return account(home, args[1:], stdout, stderr)
-	case "serve":
-		return serve(home, args[1:], stdout, stderr)
+	case "start", "stop", "restart":
+		return serviceCommand(home, args[0], args[1:], stdout, stderr)
 	case "status":
 		return status(home, args[1:], stdout, stderr)
 	case "quota":
@@ -74,7 +129,13 @@ Usage: noria <command> [arguments]
 Commands:
   init                         create private configuration
   account add|login|list|remove|enable|disable
-  serve [--listen 127.0.0.1:43119]
+  start | stop | restart       background routing; stop restores direct settings
+  integrate codex|claude        preview and install persistent client routing
+  integrations [--json]         inspect configured client profiles
+  preferences [key on|off]      login and automatic update settings
+  menubar open|install          native macOS menu bar
+  update [--check]              verified CLI and menu bar updates
+  health [--json]               check gateway and client configuration
   status [--json]               inspect accounts and routing
   quota refresh [account]       read native quota without a prompt
   doctor                       check local prerequisites
@@ -97,136 +158,6 @@ func (s *stringsFlag) Set(v string) error {
 	return nil
 }
 
-func account(home string, args []string, out, errOut io.Writer) error {
-	if len(args) == 0 || isHelp(args[0]) {
-		fmt.Fprint(out, `Usage: noria account add <id> --provider codex|claude [--model <model> ...]
-       noria account login|remove|enable|disable <id>
-       noria account list
-
-Profiles are isolated under NORIA_HOME/accounts/<id>. Login runs the native
-interactive client with that profile. Remove unregisters an account but retains
-its credentials and native history so accidental removal is reversible.
-`)
-		return nil
-	}
-	op := args[0]
-	for _, a := range args[1:] {
-		if isHelp(a) {
-			return account(home, nil, out, errOut)
-		}
-	}
-	if op == "list" {
-		if len(args) != 1 {
-			return fmt.Errorf("usage: noria account list")
-		}
-		c, e := config.Load(home)
-		if e != nil {
-			return e
-		}
-		for _, a := range c.Accounts {
-			fmt.Fprintf(out, "%s\t%s\tenabled=%t\tmodels=%v\n", a.ID, a.Provider, a.Enabled, a.Models)
-		}
-		return nil
-	}
-	if len(args) < 2 {
-		return fmt.Errorf("account %s requires an ID", op)
-	}
-	id := args[1]
-	if e := config.ValidateID(id); e != nil {
-		return e
-	}
-	if op == "login" {
-		if len(args) != 2 {
-			return fmt.Errorf("usage: noria account login <id>")
-		}
-		c, e := config.Load(home)
-		if e != nil {
-			return e
-		}
-		a, e := findAccount(c, id)
-		if e != nil {
-			return e
-		}
-		return login(home, a, out, errOut)
-	}
-	if op != "add" && op != "remove" && op != "enable" && op != "disable" {
-		return fmt.Errorf("unknown account command %q", op)
-	}
-	f := flags("account "+op, errOut)
-	p := f.String("provider", "", "codex or claude")
-	var models stringsFlag
-	f.Var(&models, "model", "allowed model (repeatable; omit for any model)")
-	if e := f.Parse(args[2:]); e != nil {
-		if errors.Is(e, flag.ErrHelp) {
-			return nil
-		}
-		return e
-	}
-	if f.NArg() != 0 {
-		return fmt.Errorf("unexpected arguments")
-	}
-	unlock, e := config.Lock(home, "config")
-	if e != nil {
-		return e
-	}
-	defer unlock()
-	c, e := config.Load(home)
-	if e != nil {
-		return e
-	}
-	idx := -1
-	for i, a := range c.Accounts {
-		if a.ID == id {
-			idx = i
-		}
-	}
-	if op == "add" {
-		if idx >= 0 {
-			return fmt.Errorf("account %s already exists", id)
-		}
-		if *p != "codex" && *p != "claude" {
-			return fmt.Errorf("--provider must be codex or claude")
-		}
-		profile := filepath.Join(home, "accounts", id)
-		if e = config.PrivateDir(profile); e != nil {
-			return e
-		}
-		c.Accounts = append(c.Accounts, model.Account{ID: id, Provider: *p, Profile: profile, Enabled: true, Models: models})
-	} else {
-		if idx < 0 {
-			return fmt.Errorf("account %s does not exist", id)
-		}
-		switch op {
-		case "remove":
-			c.Accounts = append(c.Accounts[:idx], c.Accounts[idx+1:]...)
-		case "enable":
-			c.Accounts[idx].Enabled = true
-		case "disable":
-			c.Accounts[idx].Enabled = false
-		}
-	}
-	if e = config.Save(home, c); e != nil {
-		return e
-	}
-	// Atomic config reads do not need the writer lock; a live daemon applies
-	// authorization changes before the command reports success.
-	if _, err := controlRequest(home, http.MethodPost, "/_noria/reload", nil); err != nil {
-		if _, live := os.Stat(filepath.Join(home, "daemon.json")); live == nil {
-			return fmt.Errorf("account configuration saved but live reload failed: %w", err)
-		}
-	}
-	fmt.Fprintln(out, "Account", id, op)
-	return nil
-}
-
-func findAccount(c config.Config, id string) (model.Account, error) {
-	for _, a := range c.Accounts {
-		if a.ID == id {
-			return a, nil
-		}
-	}
-	return model.Account{}, fmt.Errorf("account %s does not exist", id)
-}
 func printJSON(w io.Writer, v any) error {
 	en := json.NewEncoder(w)
 	en.SetIndent("", "  ")

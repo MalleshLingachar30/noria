@@ -1,0 +1,55 @@
+#!/bin/sh
+set -eu
+# Noria's supported macOS install path mirrors Zodex: verified curl + tar,
+# ad-hoc signed app, no browser quarantine metadata and no security overrides.
+repo='https://github.com/amxv/noria'
+install_dir=${NORIA_INSTALL_DIR:-"$HOME/.local/bin"}
+case "$(uname -s)" in Darwin) os=darwin;; Linux) os=linux;; *) echo 'Use npm install -g @amxv/noria or the Windows binary on Windows.' >&2; exit 1;; esac
+case "$(uname -m)" in arm64|aarch64) arch=arm64;; x86_64|amd64) arch=amd64;; *) echo 'Unsupported CPU architecture' >&2; exit 1;; esac
+for tool in curl tar; do command -v "$tool" >/dev/null 2>&1 || { echo "$tool is required" >&2; exit 1; }; done
+version=${NORIA_VERSION:-}
+if [ -n "$version" ]; then
+  version=${version#v}
+  printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo 'Invalid NORIA_VERSION' >&2; exit 1; }
+  base="$repo/releases/download/v$version"
+else
+  base="$repo/releases/latest/download"
+fi
+umask 077
+stage=$(mktemp -d "${TMPDIR:-/tmp}/noria-install.XXXXXX")
+trap 'rm -rf "$stage"' EXIT HUP INT TERM
+asset="noria_${os}_${arch}"
+if [ "$os" = darwin ]; then asset="$asset.tar.gz"; fi
+curl --proto '=https' --tlsv1.2 -fsSL --retry 3 "$base/SHA256SUMS" -o "$stage/SHA256SUMS"
+curl --proto '=https' --tlsv1.2 -fsSL --retry 3 "$base/$asset" -o "$stage/$asset"
+expected=$(awk -v file="$asset" '$2==file {print $1}' "$stage/SHA256SUMS")
+[ "${#expected}" -eq 64 ] || { echo 'Release checksum is missing or ambiguous' >&2; exit 1; }
+if command -v shasum >/dev/null 2>&1; then actual=$(shasum -a 256 "$stage/$asset" | awk '{print $1}'); else actual=$(sha256sum "$stage/$asset" | awk '{print $1}'); fi
+[ "$actual" = "$expected" ] || { echo 'Release checksum mismatch; nothing was installed.' >&2; exit 1; }
+mkdir -p "$install_dir"
+if [ "$os" = darwin ]; then
+  mkdir "$stage/unpacked"
+  tar -tzf "$stage/$asset" | while IFS= read -r entry; do
+    case "$entry" in /*|../*|*/../*) echo 'Unsafe archive member' >&2; exit 1;; esac
+  done
+  tar -xzf "$stage/$asset" -C "$stage/unpacked"
+  codesign --verify --deep --strict "$stage/unpacked/Noria.app"
+  cp "$stage/unpacked/noria" "$install_dir/.noria-next"
+  chmod 755 "$install_dir/.noria-next"
+  if [ -e "$install_dir/Noria.app" ]; then
+    echo 'An existing installation was found. Use noria update to update it safely.' >&2
+    rm -f "$install_dir/.noria-next"
+    exit 1
+  fi
+  # Copy the complete signed bundle before changing the CLI entrypoint.
+  cp -R "$stage/unpacked/Noria.app" "$install_dir/Noria.app"
+else
+  cp "$stage/$asset" "$install_dir/.noria-next"
+  chmod 755 "$install_dir/.noria-next"
+fi
+mv -f "$install_dir/.noria-next" "$install_dir/noria"
+"$install_dir/noria" --version
+"$install_dir/noria" init
+case ":${PATH:-}:" in *":$install_dir:"*) ;; *) printf '\nAdd this to your shell profile, then open a new terminal:\n  export PATH="%s:$PATH"\n' "$install_dir";; esac
+if [ "$os" = darwin ] && [ "${NORIA_NO_LAUNCH:-0}" != 1 ]; then "$install_dir/noria" menubar open; fi
+printf '\nInstalled. Add your accounts, configure your clients once, and use Codex or Claude normally.\nhttps://noria.ashray.xyz/docs/quickstart/\n'

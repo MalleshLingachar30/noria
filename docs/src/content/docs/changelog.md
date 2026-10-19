@@ -2,9 +2,18 @@
 title: Changelog
 description: Release notes and validation boundaries for Noria.
 order: 11
-category: Development
-summary: Noria v0.1.1 removes the Claude Node SDK dependency.
+category: Reference
+summary: Noria v0.2.0 brings persistent routing and a native menu bar.
 ---
+
+## 0.2.0 · 2026-10-20
+
+- Native macOS menu bar with email-first accounts, optional aliases, five-hour/weekly usage and reset times, refresh-on-open, account actions, and a no-prompt health check.
+- Nonblocking Start/Stop/Restart on macOS, Linux, and Windows. Stop restores managed direct-client routing without changing the client's login. Removed the public `serve` command.
+- Persistent Codex/Claude Code setup with credential helpers, previews, backups, comment preservation, and conflict-aware restoration.
+- Browser sign-in, email discovery, and immediate quota refresh; separate service/menu login preferences.
+- CLI-owned verified updates, active-work deferral, macOS app archives, and a Zodex-style CLI installer.
+- Usage-first documentation, exact manual client configuration, and clear desktop/remote boundaries.
 
 ## 0.1.1 · 2026-10-20
 

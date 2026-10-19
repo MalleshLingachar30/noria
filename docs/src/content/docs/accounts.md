@@ -1,67 +1,53 @@
 ---
-title: Accounts & authentication
-description: Create isolated native authentication profiles and manage only the accounts you explicitly authorize.
+title: "Manage accounts and aliases"
+description: "Add accounts by signing in and display their emails or optional aliases."
 order: 2
-category: Start
-summary: Explicit sign-in, private account profiles, model eligibility, and quota readers.
+category: "Start"
+summary: "Add accounts by signing in and display their emails or optional aliases."
 ---
 
-Noria separates **upstream account authentication** from **your normal client workspace**. Account profiles belong under `NORIA_HOME`; the client you launch keeps its usual history and settings.
+## Add an account
 
-## Create a profile
+Use **Add Codex Account…** or **Add Claude Account…** in the menu, or:
 
-```bash
-noria account add work --provider codex
-noria account login work
-noria account list
+```sh
+noria account add codex
+noria account add claude
 ```
 
-Use `--provider claude` for a Claude Code account. Account IDs are local labels: 1–64 letters, digits, underscores, or hyphens, beginning with a letter or digit. Choose labels that will be safe to include in local status output.
+The native sign-in opens in your browser. Choose the intended account. After sign-in, Noria shows its email and refreshes usage. Incomplete new sign-ins stay disabled until completed with **Sign In Again…**.
 
-`account add` creates a profile without copying credentials. `account login` invokes `codex login` with that account’s `CODEX_HOME`, or `claude auth login` with that account’s `CLAUDE_CONFIG_DIR`. Complete the native interactive flow as the intended account. Adding a second profile does not create a new provider subscription.
+Pool authentication is separate from your ordinary client login. Adding an account does not switch the account used by a normal direct Codex or Claude installation.
 
-Do not copy your normal auth files into Noria as a setup shortcut. Native login manages its own credential storage. Claude Code can use a macOS Keychain entry associated with the configuration directory or credential files, depending on authentication method and platform. See [Claude’s authentication documentation](https://code.claude.com/docs/en/authentication).
+## Optional aliases
 
-## Restrict model eligibility
+Choose **Rename / Set Alias…** on an account. Leave the alias empty, or choose **Use Email as Name**, to show its email again.
 
-```bash
-noria account add specialist --provider codex --model gpt-5.4
+```sh
+noria account rename alex@example.com "Work"
+noria account rename alex@example.com ""
 ```
 
-Repeat `--model` to allow several exact model names. This is a routing constraint, not a model substitution: requests retain their original model. Use model IDs available to your account; the example is not a promise of model access.
+The immutable internal ID stays the same, so renaming does not move sessions or discard their account affinity.
 
-## Enable, disable, or remove
+## Enable, relogin, or remove
 
-```bash
-noria account disable work
-noria account enable work
-noria account remove work
+```sh
+noria account disable alex@example.com
+noria account enable alex@example.com
+noria account relogin alex@example.com
+noria account remove alex@example.com
 ```
 
-Disable an account before maintenance to remove it from eligible placement. Account changes request an immediate reload in a running daemon. If the command reports that configuration was saved but live reload failed, stop/restart the daemon or resolve the control error before relying on the change. Disabling does not cancel work already accepted upstream.
+These actions are also in each account's submenu. Disabling prevents new placement on that account; it does not revoke the native login or cancel already accepted work. Removing unregisters the account but retains its profile for recovery; it is not secure erasure or provider logout.
 
-Removing an account unregisters it but **retains its native profile credentials and history**. It does not securely erase credentials or sign you out. Re-adding the same ID may reuse the retained profile. It does not sign you out of unrelated native client profiles. See [security and privacy](/docs/security-and-limitations#removing-accounts-and-local-data) before deleting local data.
+When an email or alias is ambiguous, use the internal ID from `noria account list --json`. Adding the same subscription twice does not create more quota.
 
-## Codex quota reader
+## Usage information
 
-Noria launches the installed `codex app-server` with each account’s isolated `CODEX_HOME`. It initializes the experimental API and reads `account/rateLimits/read`; the canonical Codex bucket is preferred over unrelated buckets.
-
-Five-hour and weekly windows are recognized by duration, not assumed array order. Usage percentages mean **used**, while scheduling explanations may display **remaining**. Missing windows and resets remain unknown. Model-scoped limits are separate constraints. Noria does not consume quota reset credits to read usage.
-
-The provider interface is described in the [Codex app-server documentation](https://developers.openai.com/codex/app-server).
-
-## Claude native quota reader
-
-```bash
-noria quota refresh claude-work
+```sh
+noria quota refresh
+noria status
 ```
 
-Noria launches the installed `claude` executable for the specified isolated `CLAUDE_CONFIG_DIR` and sends `initialize` and `get_usage` JSON control requests. No Node.js installation or separate Agent SDK package is required for this reader.
-
-This is the internal control operation behind the Agent SDK's experimental usage method. No user turn is submitted for a usage read. The control protocol is **not a documented stable CLI interface**; Noria validates responses, rejects unexpected activity, and treats missing telemetry as unknown.
-
-Both five-hour and seven-day utilization are read independently. Partial snapshots do not invent the missing window. If quota reads fail, run `noria doctor` and check [troubleshooting](/docs/troubleshooting).
-
-## Use accounts you are authorized to use
-
-Provider account access and usage remain subject to the relevant provider’s terms. Refer to [OpenAI’s terms](https://openai.com/policies/terms-of-use/) and [Anthropic’s consumer terms](https://www.anthropic.com/legal/consumer-terms) for the applicable account rules.
+Five-hour and weekly windows have independent reset times. The menu and status table show **percentage remaining**. Missing or stale data is labeled, never presented as a full allowance. A failed telemetry read does not clear an authoritative quota rejection. Usage reads do not submit model prompts or redeem reset credits.

@@ -19,8 +19,10 @@ import (
 
 	"github.com/amxv/noria/internal/config"
 	"github.com/amxv/noria/internal/core"
+	"github.com/amxv/noria/internal/integration"
 	"github.com/amxv/noria/internal/provider"
 	"github.com/amxv/noria/internal/proxy"
+	"github.com/amxv/noria/internal/service"
 )
 
 type runtimeInfo struct {
@@ -65,13 +67,29 @@ func (r *refresher) refresh(ctx context.Context, id string) ([]refreshResult, er
 	}
 	results := []refreshResult{}
 	for _, a := range c.Accounts {
-		if !a.Enabled || id != "" && a.ID != id {
+		if (!a.Enabled && !a.Authenticated && a.Email == "") || id != "" && a.ID != id {
 			continue
 		}
 		if ctx.Err() != nil {
 			return results, ctx.Err()
 		}
 		deadline, cancel := context.WithTimeout(ctx, 25*time.Second)
+		if a.Email == "" {
+			if identity, identityErr := r.p.Identity(deadline, a); identityErr == nil && identity.Email != "" {
+				_ = config.Mutate(r.home, func(current *config.Config) error {
+					for i := range current.Accounts {
+						if current.Accounts[i].ID == a.ID {
+							current.Accounts[i].Email = identity.Email
+							current.Accounts[i].Authenticated = true
+						}
+					}
+					return nil
+				})
+				if current, e := config.Load(r.home); e == nil {
+					_ = r.s.SetAccounts(current.Accounts)
+				}
+			}
+		}
 		snap, err := r.p.Refresh(deadline, a)
 		cancel()
 		if err == nil {
@@ -118,7 +136,7 @@ func serveWithContext(parent context.Context, home string, args []string, out, e
 	if e != nil {
 		return e
 	}
-	unlock, e := config.Lock(home, "daemon")
+	unlock, e := service.Guard(home, "daemon")
 	if e != nil {
 		return e
 	}
@@ -133,7 +151,7 @@ func serveWithContext(parent context.Context, home string, args []string, out, e
 	ctx, stop := context.WithCancel(parent)
 	defer stop()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/_noria/refresh" && r.URL.Path != "/_noria/reload" {
+		if r.URL.Path != "/_noria/refresh" && r.URL.Path != "/_noria/reload" && r.URL.Path != "/_noria/shutdown" {
 			gateway.ServeHTTP(w, r)
 			return
 		}
@@ -159,6 +177,12 @@ func serveWithContext(parent context.Context, home string, args []string, out, e
 		// so future public health endpoints cannot widen control authorization.
 		if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+secret)) != 1 {
 			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if r.URL.Path == "/_noria/shutdown" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"ok":true}`)
+			go func() { time.Sleep(50 * time.Millisecond); stop() }()
 			return
 		}
 		if r.URL.Path == "/_noria/reload" {
@@ -222,6 +246,13 @@ func serveWithContext(parent context.Context, home string, args []string, out, e
 			}
 		}
 	}()
+	exe, _ := service.Executable()
+	if service.ReadIntent(home).Wanted || c.StartAtLogin {
+		_ = service.SetIntent(home, exe, true)
+		if err := integration.SetActive(home, exe, actual, true); err != nil {
+			fmt.Fprintln(errOut, "Client integration needs attention:", err)
+		}
+	}
 	fmt.Fprintln(out, "Noria listening on http://"+actual)
 	select {
 	case <-ctx.Done():

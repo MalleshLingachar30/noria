@@ -82,8 +82,47 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  build-menubar:
+    needs: quality
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [arm64, amd64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Build signed native app and matching CLI
+        shell: bash
+        env:
+          NORIA_VERSION: ${{ github.ref_name }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          export NORIA_VERSION="${NORIA_VERSION#v}"
+          mkdir -p stage dist
+          swift_arch="$ARCH"
+          if [ "$ARCH" = amd64 ]; then swift_arch=x86_64; fi
+          ./apps/menubar/build.sh "$PWD/stage/Noria.app" "$swift_arch"
+          CGO_ENABLED=0 GOOS=darwin GOARCH="$ARCH" go build -mod=readonly -trimpath \
+            -ldflags="-s -w -X ${{ env.CLI_MODULE }}/internal/buildinfo.Version=$NORIA_VERSION" \
+            -o stage/noria ./cmd/noria
+          codesign --verify --deep --strict stage/Noria.app
+          if [ "$(uname -m)" = "$swift_arch" ]; then
+            stage/noria --version
+            stage/Noria.app/Contents/MacOS/noria-menubar --check
+          fi
+          cp LICENSE THIRD_PARTY_NOTICES.md stage/
+          COPYFILE_DISABLE=1 tar -czf "dist/noria_darwin_${ARCH}.tar.gz" -C stage noria Noria.app LICENSE THIRD_PARTY_NOTICES.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: menubar-${{ matrix.arch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
   github-release:
-    needs: build-binaries
+    needs: [build-binaries, build-menubar]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -93,9 +132,10 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - name: Verify six binaries and generate checksums
+      - name: Verify six binaries and two apps; generate checksums
         run: |
-          test "$(find dist -maxdepth 1 -type f -name 'noria_*' | wc -l)" -eq 6
+          test "$(find dist -maxdepth 1 -type f -name 'noria_*' ! -name '*.tar.gz' | wc -l)" -eq 6
+          test "$(find dist -maxdepth 1 -type f -name 'noria_darwin_*.tar.gz' | wc -l)" -eq 2
           (cd dist && sha256sum noria_* > SHA256SUMS)
           cp LICENSE THIRD_PARTY_NOTICES.md dist/
           node scripts/release-notes.js > release-notes.md

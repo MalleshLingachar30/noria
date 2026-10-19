@@ -1,67 +1,41 @@
 ---
-title: Release & distribution
-description: How Noria’s native binaries, npm shim, changelog, and tag-driven release fit together.
+title: "Install and update reference"
+description: "Verified binaries, the macOS app installation path, and update behavior."
 order: 10
-category: Development
-summary: The maintainer workflow for @amxv/noria and public GitHub release assets.
+category: "Reference"
+summary: "Verified binaries, the macOS app installation path, and update behavior."
 ---
 
-Noria is distributed as `@amxv/noria` through npm and native binaries through [GitHub Releases](https://github.com/amxv/noria/releases). The project is licensed under Apache-2.0.
+## macOS installation
 
-## Prepare a release
-
-Review the application and documentation together. Verify that help output, native quota control behavior, client wrapper behavior, and transport limitations match the implementation. Do not claim live account testing from fake-upstream results.
-
-Update the [changelog](/docs/changelog) with the release date and actual behavior, then run checks:
-
-```bash
-make check
-go test -race ./...
-make docs-check
-make docs-build
+```sh
+curl -fsSL https://noria.ashray.xyz/install.sh | sh
 ```
 
-Docs validation is serial. Review supported platform builds and the package’s contents before publishing. The Go binary implements Claude's `get_usage` control request directly, with no additional runtime dependency.
+The installer downloads the platform archive and SHA-256 manifest, verifies the archive and ad-hoc app signature, and installs `noria` with its sibling `Noria.app` under `~/.local/bin`. The menu bar has no Dock icon. No administrator privileges are needed.
 
-After maintainer review, commit and push the release changes, then create and push the version tag. For v0.1.1:
+This is Zodex-style CLI distribution: curl and extraction do not introduce the browser-download quarantine path. The installer does not disable Gatekeeper, remove quarantine flags, or claim notarization. Browser-downloaded bundles and organizational policies may produce additional checks.
 
-```bash
-make release-tag VERSION=0.1.1
-```
+Use `noria update` for an existing installation so replacement is coordinated with active work.
 
-This target creates and pushes a tag; it is a publishing action, not a dry run. The `v*` tag triggers GitHub Actions to run the release pipeline and publish native assets and npm. Maintainers should follow the repository’s release skill/checklist and verify the workflow’s result rather than assume tag creation means publication succeeded.
+## Other platforms and npm
 
-## Publishing prerequisites
-
-The npm package name must be publishable under the maintainer’s account or organization. The release workflow requires the repository’s configured npm publishing credential (`NPM_TOKEN`). Manage it in the credential store or GitHub secret settings; do not commit or print it.
-
-The public `amxv/noria` repository is the normal anonymous download path. Package version, release tag, binary download origin, and project metadata must agree. Deployment and release credentials are maintainer concerns; they are not required for ordinary local use.
-
-## Native assets
-
-Release names follow this contract:
-
-```text
-noria_darwin_amd64
-noria_darwin_arm64
-noria_linux_amd64
-noria_linux_arm64
-noria_windows_amd64.exe
-noria_windows_arm64.exe
-```
-
-The npm postinstall script resolves the asset for the platform. The installed native path is `bin/noria-bin`, with `.exe` on Windows. Changes to asset names require coordinated updates to the release workflow and installer.
-
-## npm installation
-
-```bash
+```sh
 npm install -g @amxv/noria
 ```
 
-The Node shim invokes the packaged native binary. Postinstall downloads it from GitHub Releases and can fall back to a local Go build if the download fails and Go is available. Download and installation failures should remain visible rather than masquerading as a successful setup.
+The optional Node shim installs a checksum-verified native binary. Node is not required by the standalone CLI or Claude quota reader. Windows and Linux have the same account/router/background commands; the native menu bar requires macOS 13 or later.
 
-Native Codex/Claude tools are separate prerequisites. npm installation does not sign in to provider accounts. Claude quota reads use the native `claude` binary directly. Node is needed for the npm distribution shim only; direct native binaries have no Node or Agent SDK dependency.
+Releases contain six OS/architecture binaries, two macOS app archives, licenses, and `SHA256SUMS`. Select your actual OS and architecture from [GitHub Releases](https://github.com/amxv/noria/releases).
 
-## Documentation deployment
+## Automatic updates
 
-The static website is independent of the gateway. Its canonical URL is `https://noria.ashray.xyz`; use `docs` as the deployment Root Directory. Build output is `docs/dist`. A docs deployment never hosts your local accounts or forwards your model requests.
+The menu periodically invokes the CLI updater when Automatic Updates is enabled. The Go CLI owns the preference, download, verification, deferral, replacement, and service restart. Manual `noria update` remains available when the menu is closed.
+
+Open requests and streaming connections defer replacement. Failed verification leaves the installed release unchanged. Replacement retains rollback information so a failed new service can return to the prior release.
+
+## Maintainers
+
+Update version and changelog, run Go/race/native-client tests, verify both macOS app architectures, and check/build docs serially. Tags trigger CI, six native binaries, two macOS archives, checksums, npm publishing, and published-install tests. Verify results rather than equating a tag push with release completion.
+
+Docs auto-deploy from `main` using the Vercel project's `docs` root. Do not include private runtime data in a package or deployment.

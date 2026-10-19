@@ -2,7 +2,7 @@
 title: Development
 description: Build Noria locally and verify routing changes with isolated profiles and fake upstreams.
 order: 9
-category: Development
+category: Reference
 summary: Repository map, local checks, documentation workflow, and behavioral invariants.
 ---
 

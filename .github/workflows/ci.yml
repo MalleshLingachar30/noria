@@ -37,7 +37,16 @@ jobs:
       - name: Node installer and project tests
         run: npm test
       - name: Build
-        run: go build ./cmd/noria
+        shell: bash
+        run: |
+          mkdir -p dist
+          binary=dist/noria
+          if [ "$RUNNER_OS" = Windows ]; then binary=dist/noria.exe; fi
+          go build -o "$binary" ./cmd/noria
+      - name: Background service smoke (isolated state)
+        env:
+          NORIA_TEST_SKIP_LOGIN: "1"
+        run: python3 scripts/test-service-smoke.py
 
   docs:
     runs-on: ubuntu-latest
@@ -51,3 +60,23 @@ jobs:
           make docs-install
           make docs-check
           make docs-build
+
+  native-menu:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26.4"
+          cache: true
+      - name: Compile both menu bar architectures
+        run: |
+          mkdir -p dist
+          go build -o dist/noria ./cmd/noria
+          ./apps/menubar/build.sh "$PWD/dist/Noria.app" "$(uname -m)"
+          dist/Noria.app/Contents/MacOS/noria-menubar --check
+          dist/Noria.app/Contents/MacOS/noria-menubar --validate-status-json apps/menubar/Tests/status.json
+          ./apps/menubar/build.sh "$PWD/dist/Noria-intel.app" x86_64
+          ./apps/menubar/build.sh "$PWD/dist/Noria-arm.app" arm64
+      - name: Verify service start and direct restoration
+        run: python3 scripts/test-service-smoke.py

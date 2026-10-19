@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/amxv/noria/internal/buildinfo"
 	"github.com/amxv/noria/internal/core"
 	"github.com/amxv/noria/internal/model"
 	"github.com/gorilla/websocket"
@@ -40,6 +41,7 @@ type Server struct {
 	mu             sync.Mutex
 	sockets        map[*websocket.Conn]struct{}
 	closed         bool
+	draining       bool
 	refreshCtx     context.Context
 	refreshCancel  context.CancelFunc
 	refreshing     map[string]bool
@@ -107,7 +109,27 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == http.MethodGet && r.URL.Path == "/_noria/health" {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"ok":true}`)
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "version": buildinfo.CurrentVersion()})
+		return
+	}
+	if r.Method == http.MethodPost && (r.URL.Path == "/_noria/drain" || r.URL.Path == "/_noria/undrain" || r.URL.Path == "/_noria/resume") {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if r.URL.Path == "/_noria/undrain" || r.URL.Path == "/_noria/resume" {
+			s.draining = false
+			w.WriteHeader(200)
+			return
+		}
+		// Existing WebSockets can submit another request without another HTTP
+		// handshake. Do not restart while any such connection is open.
+		if len(s.slots) > 0 || len(s.sockets) > 0 {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"busy":true}`)
+			return
+		}
+		s.draining = true
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"busy":false}`)
 		return
 	}
 	provider, path := route(r.URL.Path)
@@ -115,13 +137,22 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, "unknown native API route")
 		return
 	}
+	s.mu.Lock()
+	if s.draining {
+		s.mu.Unlock()
+		fail(w, 503, "router is updating; retry shortly")
+		return
+	}
 	select {
 	case s.slots <- struct{}{}:
+		s.mu.Unlock()
 		defer func() { <-s.slots }()
 	default:
+		s.mu.Unlock()
 		fail(w, http.StatusServiceUnavailable, "connection limit reached")
 		return
 	}
+
 	if websocket.IsWebSocketUpgrade(r) {
 		if provider != "codex" || path != "/responses" {
 			fail(w, http.StatusBadRequest, "WebSocket requires the Codex responses route")

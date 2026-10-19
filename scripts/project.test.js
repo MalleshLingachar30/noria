@@ -35,3 +35,18 @@ test("local cross-build output preserves both OS and architecture", () => {
   assert.ok(make.includes("$${GOOS}_$${GOARCH}"));
   assert.ok(make.includes("\"windows arm64\""));
 });
+
+test("macOS install script and website copy stay identical", () => {
+  const shell = fs.readFileSync(path.join(root, "scripts/install.sh"), "utf8");
+  assert.equal(fs.readFileSync(path.join(root, "docs/public/install.sh"), "utf8"), shell);
+  assert.ok(shell.includes("SHA256SUMS") && shell.includes("codesign --verify"));
+  assert.ok(!/spctl\s+--(?:master-)?disable|xattr\s+-[a-z]*d|csrutil\s+disable/.test(shell));
+});
+
+test("release workflow publishes both app archives and all six binaries", () => {
+  const workflow = fs.readFileSync(path.join(root, ".github/workflows/release.yml"), "utf8");
+  assert.ok(workflow.includes("build-menubar:"));
+  assert.ok(workflow.includes("needs: [build-binaries, build-menubar]"));
+  assert.ok(workflow.includes("noria_darwin_${ARCH}.tar.gz"));
+  assert.ok(workflow.includes("codesign --verify --deep --strict"));
+});

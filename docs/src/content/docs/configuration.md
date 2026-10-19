@@ -1,72 +1,34 @@
 ---
-title: Configuration
-description: Noria’s private home, loopback listener, model constraints, and persisted operational state.
+title: "Configuration and private state"
+description: "Paths, backups, native controls, and service boundaries."
 order: 6
-category: Reference
-summary: Defaults and supported controls without manual credential JSON.
+category: "Reference"
+summary: "Paths, backups, native controls, and service boundaries."
 ---
 
-Use the CLI for ordinary account setup. You do not need to craft credential JSON or modify your existing native client configuration.
+`NORIA_HOME` defaults to `~/.noria`. Pool authentication profiles live under that home, separately from your normal client history and settings.
 
-## Defaults
-
-| Setting | Default | Control |
-| --- | --- | --- |
-| Noria home | Absolute `~/.noria` | `NORIA_HOME` environment variable |
-| Listener | `127.0.0.1:43119` | `noria serve --listen <address>` |
-| Account eligibility | Enabled; any requested model for its provider | Account enable/disable; repeatable `account add --model` |
-| Claude quota reader | Installed native `claude` binary | Automatic control-only `get_usage` request |
-| Gateway credential | Random local secret | Created by `noria init` |
-
-The listen address must use a numeric loopback IP. Public interfaces such as `0.0.0.0` are rejected. This is a local single-user gateway, not a hosted inference endpoint.
-
-## Use a different Noria home
-
-Set the same home for every related command and terminal:
-
-```bash
-export NORIA_HOME="$HOME/.noria-work"
-noria init
-noria account add work --provider codex
-noria account login work
-```
-
-Noria resolves the home to an absolute path. Upstream profiles are kept under that home’s `accounts/<id>`. Changing `NORIA_HOME` selects a separate pool, local secret, and scheduler state. It does not import accounts from the previous home.
-
-## Change the listener
-
-```bash
-noria serve --listen 127.0.0.1:43120
-```
-
-Use `noria run` or freshly generated `noria env` output for that running daemon. These commands can discover its recorded listen address; old manually exported environment values may still point at the previous port. Use `noria status` to check the current daemon.
-
-`config.json` also stores the default `listen` value. Stop the daemon before manually changing this file. Prefer the command flag for a temporary port change.
-
-## Account controls
-
-```bash
-noria account add restricted --provider codex --model gpt-5.4
-noria account disable restricted
-noria account enable restricted
-noria quota refresh
-```
-
-Model IDs are exact eligibility constraints, not replacements for the model in a request. The example does not guarantee access to that model. Repeat `--model` at account creation for multiple allowed names. Omit it to leave model eligibility unrestricted by local configuration; upstream access limits still apply.
-
-Adding, removing, enabling, or disabling an account requests an immediate reload in a running daemon. Periodic quota refresh also reloads configuration. If a command reports that live reload failed, resolve that error or restart the daemon before relying on the changed pool. These controls do not cancel work already accepted upstream.
-
-## Files in the private home
-
-| Path | Purpose |
+| Private path | Purpose |
 | --- | --- |
-| `config.json` | Listener and registered account metadata |
-| `secret` | Local gateway authentication secret |
-| `accounts/<id>/` | Isolated native authentication profile |
-| `scheduler.json` | Bindings, quota snapshots, learned estimates, and cooldown metadata |
-| `daemon.json` | Current local daemon address |
-| `*.lock` | Short control-operation or daemon ownership locks |
+| `config.json` | Account/email/alias metadata and preferences |
+| `secret` | Random local gateway credential |
+| `accounts/<id>/` | Isolated native sign-in profiles |
+| `scheduler.json` | Bindings, usage snapshots, blockers, and learned estimates |
+| `integrations.json`, `backups/` | Managed routing fields and original settings backups |
+| `service.json`, `daemon.json` | Desired runtime state and live address |
+| `logs/service.log` | Private bounded service diagnostics |
+| `update.json` | Last update check/result |
 
-Treat the whole home as private. Directories use mode `0700` and Noria-managed state files use `0600` where supported. Files written by upstream native clients follow those clients’ storage behavior. Windows permissions require the operating system’s own access controls as well.
+Private files have restrictive permissions where supported; Windows also relies on user access controls. Never publish the private home.
 
-Do not edit `scheduler.json` to force a different route or clear a provider limit. Removing state discards affinity and learning; it does not restore quota. `account remove` unregisters an account but retains the native profile on disk. See [security and limitations](/docs/security-and-limitations) for credential handling and cleanup.
+## Native controls
+
+Codex usage comes from the installed `codex app-server` with the account's isolated `CODEX_HOME`. Claude usage comes from the installed native `claude` executable's experimental `get_usage` control request. There is no Node/Agent SDK runtime bridge, user prompt, or reset-credit redemption in these reads.
+
+Noria forwards native Responses HTTP/SSE/WebSocket and Claude Messages HTTP/SSE. Authentication is substituted upstream; models and request bodies are not translated between providers.
+
+## Service ownership
+
+An OS service or local supervisor owns the daemon. Swift only renders CLI state and invokes CLI actions. OS locks release on process exit, so a crash does not leave a fake live PID-file lock. Account and binding metadata persist across restarts.
+
+The listener is restricted to numeric loopback addresses. Public interfaces are rejected. Applications running remotely or with explicit provider overrides need their own supported configuration.

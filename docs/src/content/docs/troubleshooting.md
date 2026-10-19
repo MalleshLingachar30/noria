@@ -1,94 +1,50 @@
 ---
-title: Troubleshooting
-description: Diagnose local setup, quota reads, account availability, and interrupted native streams.
+title: "Fix a setup problem"
+description: "Practical checks for routing, sign-in, stale usage, and service startup."
 order: 8
-category: Reference
-summary: Practical checks and the current live-compatibility boundary.
+category: "Start"
+summary: "Practical checks for routing, sign-in, stale usage, and service startup."
 ---
 
-## Start with local checks
+## Start with Health Check
 
-```bash
-noria --version
-noria doctor
-noria account list
+Choose **N → Health Check**, or:
+
+```sh
+noria health
 noria status
 ```
 
-`doctor` checks local prerequisites needed by your enabled account providers and private profile permissions. It does not validate a subscription, spend live model quota, or prove a real multi-account workflow. Claude needs only its installed native executable for quota reading.
+This checks local reachability, managed routing configuration, and native executables. It sends no model prompt and does not prove live subscription acceptance.
 
-Use the same `NORIA_HOME` in the daemon terminal and the client terminal. A different home means a different pool and local secret.
+## My client is not using Noria
 
-## The daemon is unavailable
+Inspect `noria integrations --json` and configure the root actually read by that client. Reopen it after setup. A project, editor, managed policy, or desktop host may override the provider. See [client setup](/docs/native-clients) for exact values and surface differences.
 
-Run `noria serve` and keep that terminal open. Check for a port conflict, then inspect the address printed at startup. You can select another numeric loopback port:
+## Stop did not change an already-running client
 
-```bash
-noria serve --listen 127.0.0.1:43120
-```
+The process may cache its settings; reopen it. Stop restores registered file values, not a running process's memory. Manually pasted snippets and Claude Desktop's separate third-party form are not registered for restoration.
 
-Launch the client again with `noria run`. Manually exported environment values from an older daemon may still point to the old address. `status` can show saved state when the daemon is unavailable; saved metadata is not evidence that the gateway is running.
+Direct use relies on the normal client's own saved login. If that account is also exhausted, direct use still has its own limit. Noria does not overwrite it with the last-used pool account.
 
-## An account is missing or disabled
+## Sign-in did not complete
 
-```bash
-noria account list
-noria account enable work
-noria quota refresh
-```
+Choose **Sign In Again…** and select the intended account in the browser. Closing the browser, cancelling, or timing out leaves a pending new account disabled. `noria account relogin <email-or-id>` uses the same flow. Do not copy ordinary auth files into another pool profile as a shortcut.
 
-Check provider and model eligibility. Claude accounts cannot serve Codex requests, and a model restriction cannot grant upstream access to a model. Account commands request immediate live reload. If that reload reports failure, resolve the control error or restart the daemon. `quota refresh` also reloads configured accounts and updates their telemetry.
+## Usage is unknown or stale
 
-## Login or authentication fails
+Run `noria quota refresh`, or open the menu and use Refresh Usage. Cached values appear immediately while new values load. Unknown is not unlimited capacity and does not clear a confirmed rejection.
 
-Use `noria account login <id>` to open the native sign-in flow for the intended profile. Do not fix it by copying your normal auth files into another account’s directory. Check that the native executable is on `PATH` and that sign-in finishes as the intended account.
+Check native client versions and `noria doctor`. Claude needs no SDK/Node bridge installation. Provider control interfaces can change with native releases.
 
-A login may need an interactive terminal and a browser. Complete this setup yourself. If it succeeds but the gateway still reports an auth blocker, run `noria quota refresh <id>` for a fresh account read. Do not attach credentials or raw native login output to an issue.
+## Startup or updates need attention
 
-## Claude quota reads fail
+Check for a port conflict on `127.0.0.1:43119`, the private `logs/service.log`, and `noria health`. Linux user systemd may be unavailable: manual Start can use the supervisor, while login autostart needs a user service manager.
 
-```bash
-claude --version
-noria doctor
-noria quota refresh claude-work
-```
+Updates wait for active requests and streaming connections to finish. Close idle client connections before retrying an update that remains deferred. Checksums and app signatures are verified before replacement; never disable OS security or strip quarantine to force an install.
 
-The reader starts the installed Claude executable with `CLAUDE_CONFIG_DIR` set to the isolated account profile and sends the experimental `get_usage` control request. An upstream change, incompatible schema, unavailable rate-limit data, or failed account auth can prevent a snapshot.
+## Verified locally
 
-No SDK or Node.js setup is necessary. Check that Claude Code is installed and that this profile is signed in; report a redacted compatibility error when the internal control interface changes. Noria treats missing and partial telemetry as unknown, not as unlimited capacity.
+Installed Codex 0.162.1 and Claude Code 2.1.299 passed local forced-failover and conversation-resume tests. Both also passed config-only launches using persistent settings and the Noria credential helper, without wrapper/provider environment overrides. Background Start/Stop was exercised with isolated client settings and no accounts. These are not live subscription-account tests or certification of every desktop host.
 
-## Every account is unavailable
-
-Read each account’s applicable five-hour, weekly, and model-scoped limits. A five-hour reset does not clear an exhausted weekly window. Authentication and cooldown blockers must also clear.
-
-If no matching account can serve, Noria reports unavailability. An earliest retry estimate is returned only when enough reset information is known. It may be later than the next individual clock because all blockers on an account have to clear. With no known reset, refresh quota or address authentication rather than retrying in a tight loop.
-
-Noria does not purchase capacity or use paid fallback. Adding another profile for the same subscription does not create more allowance.
-
-## A session does not move to the account with more quota
-
-That is hard affinity working as intended. Scores matter at placement and failover. A healthy bound session is not moved merely because another account resets. After a necessary switch, it does not automatically return to the old account.
-
-If a client omits recognizable session metadata, the gateway cannot promise continuity across its requests. Use the supported native wrapper and retain native conversation identifiers. See [native client integration](/docs/native-clients).
-
-## A stream stops, or continuation is rejected
-
-Noria cannot transparently splice an already delivered response across accounts. Review the native client’s error and conversation state before retrying, particularly when tools have run. Do not assume a second attempt can safely replay a tool action.
-
-Continuations may depend on state held by the original upstream account. Noria preserves the original continuation data on failover; another account may reject it. That error is surfaced instead of rewriting your conversation into a new request.
-
-## A lock remains after a crash
-
-Noria uses local locks to protect shared configuration, native account operations, and daemon state. It does not silently steal a lock. Follow the error’s exact path and verify no Noria or account-control process still owns that operation before manually removing a stale lock. Never clear a live lock to launch a competing daemon on the same home.
-
-## Compatibility and validation
-
-v0.1.0 is an early release. Local automated tests use fake credentials, fake native processes, and HTTP/WebSocket test upstreams. **No actual live multi-account validation has been performed.** Transport tests do not prove that a current subscription backend accepts a cross-account continuation or every native client feature.
-
-Native Responses HTTP/SSE, native Messages HTTP/SSE, and Codex WebSocket forwarding are implementation surfaces. Early quota retry is bounded by the point where output is committed. Native client versions, provider authentication behavior, beta headers, experimental Claude usage schemas, and continuation rules can change.
-
-The installed Codex 0.162.1 and Claude Code 2.1.299 clients both passed a forced quota-failover check through Noria against local mock upstreams: Codex over WebSockets and Claude over HTTP/SSE. A second test completes a turn on account A, resumes the same saved conversation, rejects A's next request, and verifies account B receives the previous user and assistant turns. These checks used temporary profiles and fake credentials, not live subscription capacity. Node 24.22 was used for local validation. This is not a minimum-version guarantee. Complete your own explicit account login and controlled native session checks before relying on a pool. Noria does not run a live validation automatically.
-
-## Report a reproducible issue
-
-Include the operating system, Noria and native client versions, redacted command and error, whether the daemon was running, and whether the failure was before or after output began. See [security and privacy](/docs/security-and-limitations#report-a-problem-without-secrets) for what to omit.
+Report Noria/native-client versions and a redacted error, not auth files, helper output, or raw conversations.

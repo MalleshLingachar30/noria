@@ -2,6 +2,7 @@
 package config
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -19,8 +20,12 @@ import (
 const DefaultListen = "127.0.0.1:43119"
 
 type Config struct {
-	Listen   string          `json:"listen"`
-	Accounts []model.Account `json:"accounts"`
+	Listen         string          `json:"listen"`
+	Accounts       []model.Account `json:"accounts"`
+	StartAtLogin   bool            `json:"start_at_login"`
+	MenuBarAtLogin bool            `json:"menubar_at_login"`
+	AutoUpdate     bool            `json:"auto_update"`
+	ToolPath       string          `json:"tool_path,omitempty"`
 }
 
 func Home() (string, error) {
@@ -81,7 +86,7 @@ func Init(home string) error {
 	defer unlock()
 	path := filepath.Join(home, "config.json")
 	if _, e = os.Stat(path); errors.Is(e, os.ErrNotExist) {
-		if e = Save(home, Config{Listen: DefaultListen, Accounts: []model.Account{}}); e != nil {
+		if e = Save(home, Config{Listen: DefaultListen, Accounts: []model.Account{}, AutoUpdate: true, ToolPath: os.Getenv("PATH")}); e != nil {
 			return e
 		}
 	} else if e != nil {
@@ -169,28 +174,51 @@ func ValidateListen(addr string) error {
 	return nil
 }
 
-// Lock serializes short control operations across processes. Locks are never
-// silently stolen; a crashed command leaves an explicit recovery instruction.
+// Lock files use OS advisory locks. A crashed process releases ownership
+// automatically; the stable file itself is never mistaken for a live owner.
 func Lock(home, name string) (func(), error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	return LockContext(ctx, home, name)
+}
+func LockContext(ctx context.Context, home, name string) (func(), error) {
 	if e := PrivateDir(home); e != nil {
 		return nil, e
 	}
 	p := filepath.Join(home, name+".lock")
-	deadline := time.Now().Add(3 * time.Second)
-	for {
-		f, e := os.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-		if e == nil {
-			fmt.Fprintf(f, "pid=%d\n", os.Getpid())
-			f.Close()
-			return func() { _ = os.Remove(p) }, nil
-		}
-		if !errors.Is(e, os.ErrExist) {
-			return nil, e
-		}
-		if time.Now().After(deadline) {
-			return nil, fmt.Errorf("%s is locked; if no noria process owns it, remove %s", name, p)
-		}
-		timer := time.NewTimer(25 * time.Millisecond)
-		<-timer.C
+	if st, e := os.Lstat(p); e == nil && !st.Mode().IsRegular() {
+		return nil, fmt.Errorf("invalid lock file %s", p)
 	}
+	f, e := os.OpenFile(p, os.O_CREATE|os.O_RDWR, 0600)
+	if e != nil {
+		return nil, e
+	}
+	for {
+		if e = tryFileLock(f); e == nil {
+			_ = f.Truncate(0)
+			_, _ = fmt.Fprintf(f, "pid=%d\n", os.Getpid())
+			return func() { releaseFileLock(f); _ = f.Close() }, nil
+		}
+		select {
+		case <-ctx.Done():
+			_ = f.Close()
+			return nil, fmt.Errorf("%s is busy: %w", name, ctx.Err())
+		case <-time.After(30 * time.Millisecond):
+		}
+	}
+}
+func Change(home string, fn func(*Config) error) error {
+	unlock, e := Lock(home, "config")
+	if e != nil {
+		return e
+	}
+	defer unlock()
+	c, e := Load(home)
+	if e != nil {
+		return e
+	}
+	if e = fn(&c); e != nil {
+		return e
+	}
+	return Save(home, c)
 }

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "version": "0.2.0",
+  "running": true,
+  "preferences": {"start_at_login": false, "menubar_at_login": false, "auto_update": true},
+  "client_roots": [{"provider": "codex", "root": "/example/.codex"}],
+  "integrations": [{"provider": "codex", "path": "/example/.codex/config.toml", "active": true, "healthy": true}],
+  "accounts": [{
+    "id": "fixture",
+    "email": "alex@example.com",
+    "alias": "",
+    "provider": "codex",
+    "enabled": true,
+    "inflight": 0,
+    "snapshot": {
+      "available": true,
+      "observed_at": "2026-10-20T00:58:00.123456789+05:30",
+      "windows": [
+        {"name": "five_hour", "used_percent": 25.0, "duration": 18000000000000, "resets_at": "2030-10-20T05:58:00+05:30"},
+        {"name": "seven_day", "used_percent": 95.0, "duration": 604800000000000, "resets_at": "2030-10-27T00:58:00.123456789Z"}
+      ]
+    }
+  }]
+}

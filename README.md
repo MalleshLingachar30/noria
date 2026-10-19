@@ -1,74 +1,56 @@
 # Noria
 
-**Keep your agents in flow.**
+**Set up once. Use your coding agents normally.**
 
-A lightweight Go CLI and local gateway for native Codex and Claude account pools. A session stays on its account until an applicable limit requires a switch. Initial and failover placement considers independent five-hour/weekly resets, learned consumption, and work already in flight.
+Noria is a lightweight local account router for Codex and Claude Code. Healthy sessions stay on their account to preserve prompt-cache reuse; new sessions and required failovers are placed using each account's own remaining allowance and reset times.
 
-[Documentation](https://noria.ashray.xyz) · [Quickstart](https://noria.ashray.xyz/docs/quickstart) · [Releases](https://github.com/amxv/noria/releases)
+[Get started](https://noria.ashray.xyz/docs/quickstart/) · [Documentation](https://noria.ashray.xyz/docs/) · [Releases](https://github.com/amxv/noria/releases)
 
-## Install and start
+## macOS: CLI and native menu bar
 
-Install the native Codex or Claude client for the provider you use, then install Noria:
+```sh
+curl -fsSL https://noria.ashray.xyz/install.sh | sh
+```
 
-```bash
+Click **N**, add your accounts, and approve **Configure Clients…** once. Account titles default to their email addresses. Aliases, enable/disable, relogin, usage refresh, Start/Stop, login preferences, health checks, and updates are available from the menu.
+
+## CLI setup
+
+```sh
 npm install -g @amxv/noria
 noria init
-noria account add work --provider codex
-noria account login work
-noria quota refresh
-noria serve
+noria account add codex
+noria account add claude
+noria start
+noria integrate codex --yes
+noria integrate claude --yes
 ```
 
-Complete the native interactive sign-in yourself. In another terminal:
+Each Add opens native browser sign-in. Repeat it for additional accounts. Reopen existing clients after configuration, then run `codex` or `claude` normally. No wrapper is required. Standalone binaries need no Node/Agent SDK runtime.
 
-```bash
-noria run codex --
+```sh
+noria status
+noria stop      # restore managed direct settings and existing native login
+noria start
+noria update
 ```
 
-Add another authorized account with a different local ID to create a failover pool. Only accounts matching the original provider and requested model are eligible.
-
-For Claude, only the installed native Claude Code executable is required for quota reads:
-
-```bash
-noria account add claude-work --provider claude
-noria account login claude-work
-noria quota refresh
-# With noria serve running in another terminal:
-noria run claude --
-```
-
-Noria communicates with the installed `claude` binary using its experimental `get_usage` control request. There is no separate Node.js/SDK dependency for Claude quota reads. Node is only needed for the optional npm distribution shim; standalone binaries are available from Releases.
-
-## The routing contract
-
-- Hard session affinity. A better score or another account’s reset does not move a healthy session. No snapback after quota failover.
-- Independent account clocks. Five-hour, weekly, and applicable model limits must all permit use. Unknown telemetry stays unknown.
-- Reset-aware placement. Bounded expiry/capacity estimates and atomic reservations guide new work, rather than rotating accounts per request.
-- Native requests. Preserve provider, model, settings, tool events, and continuation data. No protocol translation or model swaps.
-- Local state. Default loopback endpoint `127.0.0.1:43119`, random local authentication, private profiles under `~/.noria` (`NORIA_HOME` overrides).
-- Preserve normal client history/config roots. Isolate upstream account authentication; inject routing overrides only into the child client.
+Closing a terminal or quitting the menu does not stop the background service. Set login preferences for automatic startup. Stop does not copy a pool account into the normal client; clients that cache settings may need reopening.
 
 ## Boundaries
 
-Noria does not create quota, buy credits, redeem resets, or enable paid fallback. If every matching account is unavailable, it reports that and reset information when known. A forced switch starts with a cold cache on the replacement account. A partially delivered generation cannot be transparently spliced, and cross-account continuation can depend on state held by the provider.
+Noria never buys credits, redeems quota resets, or changes providers/models. No quota exists when all accounts are exhausted. A forced switch starts a cold account cache. Already-delivered model output is not spliced or replayed. Tests use isolated profiles and controlled upstreams, not live subscriptions.
 
-**Live multi-account workflows have not yet been validated.** Installed Codex and Claude clients pass local tests that resume saved conversations, force a quota rejection on one account, and continue on another while retaining prior turns. These tests use fake credentials and test upstreams, not live subscription capacity. See [compatibility and validation](https://noria.ashray.xyz/docs/troubleshooting#compatibility-and-validation) before relying on a pool.
-
-`noria status`, `noria doctor`, and `noria quota refresh` help inspect setup. `noria env` intentionally prints the local gateway secret; do not share its output. `account remove` unregisters an account but retains its native profile credentials/history.
+The macOS app uses Zodex-style, checksum-verified CLI installation and ad-hoc signing, not Developer ID notarization. No security settings or quarantine flags are weakened. Browser downloads can be treated differently. See [installation details](https://noria.ashray.xyz/docs/release-and-npm/) and [client-specific setup](https://noria.ashray.xyz/docs/native-clients/), including Claude Desktop's separate form.
 
 ## Development
 
-Use the Go version in `go.mod`, Node for packaging checks, and Bun for docs:
-
-```bash
+```sh
 make check
 go test -race ./...
-make build
 make docs-install
 make docs-check
 make docs-build
 ```
 
-Run docs check and build serially. Tests must use temporary isolated homes, fake native processes, and fake upstreams, never the developer’s actual authentication roots. See [CONTRIBUTORS.md](CONTRIBUTORS.md) and the [development guide](https://noria.ashray.xyz/docs/development).
-
-Apache-2.0. See [LICENSE](LICENSE).
+All tests must use temporary auth/config homes. The Go CLI owns application state; Swift is presentation only. Apache-2.0. See LICENSE and THIRD_PARTY_NOTICES.md.

@@ -1,0 +1,228 @@
+import AppKit
+import Foundation
+
+// Native presentation only: every mutation and provider operation is a Go CLI command.
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+    private let cli: CLI
+    private let menu = NSMenu()
+    private var statusItem: NSStatusItem!
+    private var dashboard: Dashboard?
+    private var refreshing = false
+    private var statusInFlight = false
+    private var mutationInFlight = false
+    private var loginProcess: Process?
+    private var updateInFlight = false
+    private var updateTimer: Timer?
+    private var actions: [Int: () -> Void] = [:]
+    private var nextAction = 1
+    private var refreshMessage: String?
+    init(cli: CLI) { self.cli = cli; super.init() }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem.button?.title = "N"
+        statusItem.button?.font = .systemFont(ofSize: 14, weight: .semibold)
+        statusItem.button?.toolTip = "Noria — your local account router"
+        menu.delegate = self
+        menu.autoenablesItems = false
+        statusItem.menu = menu
+        render()
+        cli.run(["init"], timeout: 10) { [weak self] _ in self?.loadStatus() }
+        updateTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in self?.checkUpdate(automatic: true) }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in self?.checkUpdate(automatic: true) }
+    }
+    func applicationWillTerminate(_ notification: Notification) { updateTimer?.invalidate(); if loginProcess?.isRunning == true { loginProcess?.terminate() } }
+    func menuWillOpen(_ menu: NSMenu) { loadStatus(); refreshUsage() }
+
+    private func item(_ title: String, enabled: Bool = true, check: Bool? = nil, symbol: String? = nil, action: (() -> Void)? = nil) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action == nil ? nil : #selector(performAction(_:)), keyEquivalent: "")
+        item.target = self; item.isEnabled = enabled
+        if let check { item.state = check ? .on : .off }
+        if let symbol { item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title); item.image?.isTemplate = true }
+        if let action { let key = nextAction; nextAction += 1; actions[key] = action; item.tag = key }
+        return item
+    }
+    @objc private func performAction(_ sender: NSMenuItem) { actions[sender.tag]?() }
+    private func label(_ text: String) -> NSMenuItem { item(text, enabled: false) }
+    private func render() {
+        menu.removeAllItems(); actions.removeAll()
+        let running = dashboard?.running ?? false
+        statusItem.button?.appearsDisabled = dashboard != nil && !running
+        menu.addItem(label(running ? "Noria is Running" : "Noria is Stopped · Direct Routing"))
+        menu.addItem(item(running ? "Stop Noria" : "Start Noria", enabled: !mutationInFlight, symbol: running ? "stop.fill" : "play.fill") { [weak self] in self?.changeService(running ? "stop" : "start") })
+        if mutationInFlight { menu.addItem(label("Applying change…")) }
+        menu.addItem(.separator())
+        for provider in ["codex", "claude"] {
+            menu.addItem(label(provider == "codex" ? "CODEX ACCOUNTS" : "CLAUDE ACCOUNTS"))
+            let accounts = dashboard?.accounts.filter { $0.provider == provider } ?? []
+            if accounts.isEmpty { menu.addItem(label("No accounts added")) }
+            for account in accounts { addAccount(account) }
+            menu.addItem(.separator())
+        }
+        menu.addItem(item("Add Codex Account…", enabled: loginProcess == nil, symbol: "person.badge.plus") { [weak self] in self?.authenticate(provider: "codex", account: nil) })
+        menu.addItem(item("Add Claude Account…", enabled: loginProcess == nil, symbol: "person.badge.plus") { [weak self] in self?.authenticate(provider: "claude", account: nil) })
+        if loginProcess != nil {
+            menu.addItem(label("Finish sign-in in your browser…"))
+            menu.addItem(item("Cancel Sign-In") { [weak self] in self?.loginProcess?.terminate() })
+        }
+        menu.addItem(item(refreshing ? "Refreshing Usage…" : "Refresh Usage", enabled: !refreshing, symbol: "arrow.clockwise") { [weak self] in self?.refreshUsage() })
+        if let refreshMessage { menu.addItem(label(refreshMessage)) }
+        menu.addItem(.separator())
+        let clientMenu = NSMenu()
+        for root in dashboard?.client_roots ?? [] {
+            let path = (root.root as NSString).abbreviatingWithTildeInPath
+            clientMenu.addItem(item("\(root.provider == "codex" ? "Codex" : "Claude Code"): \(path)…") { [weak self] in self?.configure(root: root, remove: false) })
+        }
+        clientMenu.addItem(.separator())
+        clientMenu.addItem(item("Choose a Custom Client Folder…") { [weak self] in self?.customIntegration() })
+        for entry in dashboard?.integrations ?? [] {
+            let path = (entry.path as NSString).abbreviatingWithTildeInPath
+            clientMenu.addItem(item("Restore Direct Settings: \(path)…") { [weak self] in self?.configure(root: ClientRoot(provider: entry.provider, root: (entry.path as NSString).deletingLastPathComponent), remove: true) })
+        }
+        let integrations = item("Configure Clients…", symbol: "gearshape"); integrations.submenu = clientMenu; menu.addItem(integrations)
+        menu.addItem(item("Health Check", symbol: "heart.text.square") { [weak self] in self?.healthCheck() })
+        menu.addItem(.separator())
+        let prefs = dashboard?.preferences
+        menu.addItem(item("Launch Menu Bar at Login", enabled: !mutationInFlight, check: prefs?.menubar_at_login ?? false) { [weak self] in self?.setPreference("menubar-at-login", enabled: !(prefs?.menubar_at_login ?? false)) })
+        menu.addItem(item("Start Noria at Login", enabled: !mutationInFlight, check: prefs?.start_at_login ?? false) { [weak self] in self?.setPreference("start-at-login", enabled: !(prefs?.start_at_login ?? false)) })
+        menu.addItem(item("Automatically Update", enabled: !mutationInFlight, check: prefs?.auto_update ?? false) { [weak self] in self?.setPreference("auto-update", enabled: !(prefs?.auto_update ?? false)) })
+        menu.addItem(item(updateInFlight ? "Checking for Updates…" : "Check for Updates…", enabled: !updateInFlight) { [weak self] in self?.checkUpdate(automatic: false) })
+        let version = Bundle.main.object(forInfoDictionaryKey: "NoriaVersion") as? String ?? "unknown"
+        menu.addItem(label("Noria \(dashboard?.version ?? version)"))
+        menu.addItem(item("Open Documentation", symbol: "book") { NSWorkspace.shared.open(URL(string: "https://noria.ashray.xyz/docs/quickstart/")!) })
+        menu.addItem(.separator())
+        menu.addItem(item("Quit Menu Bar (Keep Noria Running)") { NSApplication.shared.terminate(nil) })
+    }
+    private func addAccount(_ account: AccountStatus) {
+        let header = item(account.title + (account.enabled ? "" : " · Disabled"), symbol: account.enabled ? "person.crop.circle" : "person.crop.circle.badge.minus")
+        header.toolTip = account.email
+        let commands = NSMenu()
+        if let email = account.email, !email.isEmpty { commands.addItem(label(email)) }
+        commands.addItem(item(account.enabled ? "Disable Account" : "Enable Account", enabled: !mutationInFlight) { [weak self] in self?.mutate(["account", account.enabled ? "disable" : "enable", account.id, "--json"]) })
+        commands.addItem(item("Sign In Again…", enabled: loginProcess == nil) { [weak self] in self?.authenticate(provider: account.provider, account: account) })
+        commands.addItem(item("Rename / Set Alias…") { [weak self] in self?.rename(account) })
+        if let alias = account.alias, !alias.isEmpty { commands.addItem(item("Use Email as Name") { [weak self] in self?.mutate(["account", "rename", account.id, "--json"]) }) }
+        commands.addItem(item("Remove from Pool…") { [weak self] in
+            guard let self else { return }
+            if self.confirm("Remove \(account.title)?", "This unregisters the account. Its isolated sign-in files are retained; your normal client login is unchanged.", button: "Remove") { self.mutate(["account", "remove", account.id, "--json"]) }
+        })
+        header.submenu = commands; menu.addItem(header)
+        let windows = account.snapshot?.windows?.filter { ($0.model ?? "").isEmpty } ?? []
+        for (duration, title) in [(Int64(18_000_000_000_000), "5h"), (Int64(604_800_000_000_000), "Week")] {
+            let window = windows.first { $0.duration == duration }
+            let row = label(windowText(window, title: title)); row.indentationLevel = 1
+            if let reset = window?.resets_at { let format = DateFormatter(); format.dateStyle = .medium; format.timeStyle = .short; row.toolTip = "Resets \(format.string(from: reset))" }
+            menu.addItem(row)
+        }
+        if let snapshot = account.snapshot, Date().timeIntervalSince(snapshot.observed_at) > 150 {
+            let stale = label("Last snapshot is stale"); stale.indentationLevel = 1; menu.addItem(stale)
+        }
+    }
+    private func loadStatus() {
+        guard !statusInFlight else { return }; statusInFlight = true
+        cli.run(["status", "--json"], timeout: 8) { [weak self] result in
+            guard let self else { return }; self.statusInFlight = false
+            if result.status == 0, let state = try? decodeJSON(Dashboard.self, from: result.output), state.schema_version == 1 { self.dashboard = state }
+            self.render()
+        }
+    }
+    private func refreshUsage() {
+        guard !refreshing else { return }; refreshing = true; refreshMessage = nil; render()
+        cli.run(["quota", "refresh"], timeout: 125) { [weak self] result in
+            guard let self else { return }; self.refreshing = false
+            if result.status != 0 { self.refreshMessage = "Some accounts need attention · Health Check" }
+            self.loadStatus(); self.render()
+        }
+    }
+    private func mutate(_ arguments: [String]) {
+        guard !mutationInFlight else { return }; mutationInFlight = true; render()
+        cli.run(arguments, timeout: 40) { [weak self] result in
+            guard let self else { return }; self.mutationInFlight = false
+            if result.status != 0 { self.alert("Noria could not apply the change", result.error) }
+            self.loadStatus(); self.render()
+        }
+    }
+    private func changeService(_ action: String) { mutate([action, "--json"]) }
+    private func setPreference(_ key: String, enabled: Bool) { mutate(["preferences", key, enabled ? "on" : "off", "--json"]) }
+    private func authenticate(provider: String, account: AccountStatus?) {
+        guard loginProcess == nil else { return }
+        let arguments = account.map { ["account", "login", $0.id, "--json"] } ?? ["account", "add", provider, "--json"]
+        loginProcess = cli.run(arguments, timeout: 310) { [weak self] result in
+            guard let self else { return }; self.loginProcess = nil
+            if result.status != 0 { self.alert("Sign-in did not complete", result.error) }
+            self.loadStatus(); self.refreshUsage(); self.render()
+        }
+        render()
+    }
+    private func rename(_ account: AccountStatus) {
+        let alert = NSAlert(); alert.messageText = "Name for \(account.email ?? account.title)"; alert.informativeText = "Leave this blank to display the account email."
+        alert.addButton(withTitle: "Save"); alert.addButton(withTitle: "Cancel")
+        let input = NSTextField(string: account.alias ?? ""); input.frame = NSRect(x: 0, y: 0, width: 300, height: 24); alert.accessoryView = input
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn { mutate(["account", "rename", account.id, input.stringValue, "--json"]) }
+    }
+    private func configure(root: ClientRoot, remove: Bool) {
+        let action = remove ? "Restore direct settings" : "Configure \(root.provider) for Noria"
+        let message = "\(root.root)\n\nOnly routing settings change. Your login, conversation history and other preferences stay intact. Reopen already-running clients after this change."
+        guard confirm(action + "?", message, button: remove ? "Restore" : "Configure") else { return }
+        var arguments = ["integrate", root.provider, "--client-home", root.root, "--yes", "--json"]
+        if remove { arguments.append("--remove") }
+        mutate(arguments)
+    }
+    private func customIntegration() {
+        let panel = NSOpenPanel(); panel.title = "Choose the Codex or Claude Code configuration folder"; panel.canChooseFiles = false; panel.canChooseDirectories = true; panel.allowsMultipleSelection = false
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let alert = NSAlert(); alert.messageText = "Which client uses this folder?"; alert.informativeText = url.path
+        alert.addButton(withTitle: "Codex"); alert.addButton(withTitle: "Claude Code"); alert.addButton(withTitle: "Cancel")
+        let result = alert.runModal(); if result == .alertFirstButtonReturn { configure(root: ClientRoot(provider: "codex", root: url.path), remove: false) }
+        else if result == .alertSecondButtonReturn { configure(root: ClientRoot(provider: "claude", root: url.path), remove: false) }
+    }
+    private func healthCheck() {
+        cli.run(["health", "--json"], timeout: 20) { [weak self] result in
+            guard let self else { return }
+            if result.status != 0 { self.alert("Health Check", result.error); return }
+            let report = (try? JSONSerialization.jsonObject(with: result.output)) as? [String: Any]
+            let checks = report?["checks"] as? [[String: Any]] ?? []
+            let text = checks.map { "\(($0["ok"] as? Bool ?? false) ? "✓" : "•") \($0["name"] as? String ?? "Check")\n\($0["detail"] as? String ?? "")" }.joined(separator: "\n\n")
+            self.alert("Noria Health Check", text + "\n\nNo model request was sent.")
+        }
+    }
+    private func checkUpdate(automatic: Bool) {
+        guard !updateInFlight, loginProcess == nil, !mutationInFlight else { return }; updateInFlight = true; render()
+        let arguments = automatic ? ["update", "--automatic", "--json"] : ["update", "--check", "--json"]
+        cli.run(arguments, timeout: 185) { [weak self] result in
+            guard let self else { return }; self.updateInFlight = false
+            guard result.status == 0 else { if !automatic { self.alert("Update check failed", result.error) }; self.render(); return }
+            guard let update = try? decodeJSON(UpdateResult.self, from: result.output) else { self.render(); return }
+            if update.updated { self.restartMenu(); return }
+            if !automatic {
+                if update.available {
+                    if self.confirm("Noria \(update.latest) is available", "The CLI verifies the download. Updates wait until requests and live streaming connections are idle.", button: "Update") { self.applyUpdate() }
+                } else { self.alert("Noria is up to date", "Version \(update.current)") }
+            }
+            self.render()
+        }
+    }
+    private func applyUpdate() {
+        updateInFlight = true; render()
+        cli.run(["update", "--json"], timeout: 185) { [weak self] result in
+            guard let self else { return }; self.updateInFlight = false
+            if result.status != 0 { self.alert("Update failed", result.error) }
+            else if let update = try? decodeJSON(UpdateResult.self, from: result.output) {
+                if update.updated { self.restartMenu(); return }
+                self.alert("Noria Update", update.message)
+            }
+            self.render()
+        }
+    }
+    private func restartMenu() { cli.run(["menubar", "reopen"], timeout: 5) { _ in NSApplication.shared.terminate(nil) } }
+    private func confirm(_ title: String, _ text: String, button: String) -> Bool {
+        let alert = NSAlert(); alert.messageText = title; alert.informativeText = text; alert.addButton(withTitle: button); alert.addButton(withTitle: "Cancel")
+        NSApplication.shared.activate(ignoringOtherApps: true); return alert.runModal() == .alertFirstButtonReturn
+    }
+    private func alert(_ title: String, _ text: String) {
+        let alert = NSAlert(); alert.messageText = title; alert.informativeText = String(text.prefix(1600)); alert.addButton(withTitle: "OK")
+        NSApplication.shared.activate(ignoringOtherApps: true); alert.runModal()
+    }
+}

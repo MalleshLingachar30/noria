@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/amxv/noria/internal/config"
-	"github.com/amxv/noria/internal/model"
 )
 
 // Native control processes must never inherit gateway routing or another
@@ -29,30 +28,6 @@ func isolatedEnv(profile, kind string) []string {
 		env = append(env, "CLAUDE_CONFIG_DIR="+profile)
 	}
 	return env
-}
-
-func login(home string, a model.Account, out, errOut io.Writer) error {
-	unlock, e := config.Lock(a.Profile, "native")
-	if e != nil {
-		return e
-	}
-	defer unlock()
-	// Only Noria's isolated upstream profile uses file-backed credentials.
-	// Do not change the user's ordinary client credential-store configuration.
-	args := []string{"-c", `cli_auth_credentials_store="file"`, "login"}
-	if a.Provider == "claude" {
-		args = []string{"auth", "login", "--claudeai"}
-	}
-	cmd := exec.Command(a.Provider, args...)
-	cmd.Env = isolatedEnv(a.Profile, a.Provider)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = out
-	cmd.Stderr = errOut
-	if e = cmd.Run(); e != nil {
-		return fmt.Errorf("native %s login failed: %w", a.Provider, e)
-	}
-	fmt.Fprintln(out, "Login complete. Run noria quota refresh", a.ID)
-	return nil
 }
 
 func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'" }

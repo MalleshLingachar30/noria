@@ -2,7 +2,7 @@ export const siteConfig = {
   name: "Noria",
   strapline: "Keep your agents in flow",
   description:
-    "A lightweight local Go CLI for native Codex and Claude account pools. Hard session affinity and reset-aware placement, without paid fallback or model swaps.",
+    "Set up once and use Codex or Claude Code normally. Noria handles account routing, with native macOS menu controls and background service support.",
   repoUrl: "https://github.com/amxv/noria",
   logoHref: "/favicon.svg",
   accentColor: "#8e3d25",
@@ -16,7 +16,7 @@ export const siteConfig = {
     {
       title: "Built in the open",
       text:
-        "v0.1.0 · Apache-2.0. Native binaries for macOS, Linux, and Windows. No paid fallback or model swaps."
+        "v0.2.0 · Apache-2.0. Native binaries for macOS, Linux, and Windows. No paid fallback or model swaps."
     },
     {
       title: "Source & releases",
@@ -29,8 +29,7 @@ export const siteConfig = {
 export const docCategories = [
   "Start",
   "Routing",
-  "Reference",
-  "Development"
+  "Reference"
 ] as const;
 
 export const primaryNav = [

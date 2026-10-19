@@ -28,6 +28,46 @@ func (s *Scheduler) SetAccounts(accounts []model.Account) error {
 		seen[account.ID] = true
 		copyAccounts[i] = cloneAccount(account)
 	}
+	// A completed native sign-in is authoritative for authentication only.
+	// It must not clear five-hour/weekly quota blockers or move sessions.
+	changed := false
+	oldBlocks := map[string][]blocker{}
+	oldSnapshots := map[string]model.Snapshot{}
+	for _, account := range copyAccounts {
+		if account.LastLogin.IsZero() {
+			continue
+		}
+		blocks := s.state.Blockers[account.ID]
+		kept := make([]blocker, 0, len(blocks))
+		for _, b := range blocks {
+			if b.Kind == "auth" && !b.CreatedAt.After(account.LastLogin) {
+				changed = true
+				continue
+			}
+			kept = append(kept, b)
+		}
+		if len(kept) != len(blocks) {
+			oldBlocks[account.ID] = blocks
+			s.state.Blockers[account.ID] = kept
+		}
+		if snapshot, ok := s.state.Snapshots[account.ID]; ok && snapshot.AuthInvalid && !snapshot.ObservedAt.After(account.LastLogin) {
+			oldSnapshots[account.ID] = snapshot
+			snapshot.AuthInvalid = false
+			s.state.Snapshots[account.ID] = snapshot
+			changed = true
+		}
+	}
+	if changed {
+		if err := s.save(); err != nil {
+			for id, v := range oldBlocks {
+				s.state.Blockers[id] = v
+			}
+			for id, v := range oldSnapshots {
+				s.state.Snapshots[id] = v
+			}
+			return err
+		}
+	}
 	s.accounts = copyAccounts
 	return nil
 }

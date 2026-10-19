@@ -1,58 +1,91 @@
 ---
-title: Native client integration
-description: Launch Codex and Claude through the loopback gateway while retaining your normal client workspace.
+title: "Connect your normal clients"
+description: "Persistent configuration for Codex and Claude Code, plus desktop-specific setup."
 order: 3
-category: Start
-summary: Child-only routing configuration, native protocols, session identity, and transport boundaries.
+category: "Start"
+summary: "Persistent configuration for Codex and Claude Code, plus desktop-specific setup."
 ---
 
-Install and authenticate the native clients you use. Noria supplies account routing; it is not an alternative coding client or a protocol translator.
+Use **Configure Clients…** or `noria integrate <provider> --yes` for reversible setup. Each client must read the configured root; a host with a separate root or explicit provider override needs its own setup. Reopen already-running clients after a change.
 
-## Run your normal client
+## Codex CLI and desktop
 
-Start `noria serve` in one terminal. In another terminal:
-
-```bash
-noria run codex --
-# Or, after Claude account login:
-noria run claude --
+```sh
+noria integrate codex
+noria integrate codex --yes
 ```
 
-Arguments after `--` are forwarded to the native executable. For example, `noria run codex -- --help` shows native Codex help. Use the native client’s own documentation for its available options.
+The target is `$CODEX_HOME/config.toml`, defaulting to `~/.codex/config.toml`. Codex desktop and compatible local hosts reading the same root receive the provider settings too.
 
-The wrapper retains your ordinary `HOME`, `CODEX_HOME`, and `CLAUDE_CONFIG_DIR` choices and uses child-only routing overrides. Your existing conversations, skills, settings, and project context remain available. It does not persistently rewrite the configuration in those roots. This differs from `account login`, which intentionally uses an isolated **upstream auth profile** under Noria’s home.
+For manual configuration, replace the two absolute paths below. Put `model_provider` at the file's root, before any TOML tables, and preserve existing model and other settings:
 
-## Codex
+```toml
+model_provider = "noria"
 
-The gateway uses native Responses requests. The wrapper supplies command-local `-c` overrides for a native `noria` model provider at `http://127.0.0.1:43119/codex/v1`, authenticated with `NORIA_GATEWAY_TOKEN`. It does not write `config.toml`. The upstream account is selected by Noria and its credentials are substituted only for that upstream request.
+[model_providers.noria]
+name = "Noria"
+base_url = "http://127.0.0.1:43119/codex/v1"
+wire_api = "responses"
+supports_websockets = true
 
-Codex account quota reads use a separate `codex app-server` process for each isolated account profile. The process running your normal conversation is not used to switch the account credentials of another client.
+[model_providers.noria.auth]
+command = "/absolute/path/to/noria"
+args = ["auth-token", "--home", "/absolute/path/to/.noria"]
+timeout_ms = 5000
+refresh_interval_ms = 300000
+```
 
-Noria includes HTTP/SSE forwarding and Codex WebSocket handling. WebSocket account selection and early quota handling have different lifecycle constraints from HTTP. Do not infer end-to-end compatibility with a particular native client version from a fake-upstream transport test. See [compatibility and validation](/docs/troubleshooting#compatibility-and-validation) for the release boundary.
+The command helper supplies Noria's local credential without a shell export or provider token in the configuration. See the [official Codex configuration reference](https://developers.openai.com/codex/config-reference).
 
 ## Claude Code
 
-Claude uses native Messages requests against `http://127.0.0.1:43119/claude` by default. The wrapper injects the local gateway authentication for the child and enables native tool search with `ENABLE_TOOL_SEARCH=true`.
-
-Provider headers, beta flags, model, reasoning, tool messages, and streaming events remain part of the original protocol. The gateway does not translate Claude requests into Codex requests or fall back to an API billing account.
-
-Claude quota reads are separate from request forwarding. They launch the same installed native `claude` binary with its isolated upstream account profile and use the experimental `get_usage` control operation, with no Node.js or Agent SDK bridge. Read [accounts and authentication](/docs/accounts#claude-native-quota-reader).
-
-## Session identity
-
-Affinity depends on a session identity the gateway can recognize in native request metadata. Keep native session and conversation identifiers intact. Independent sessions and identifiable branches can receive independent placements. Anonymous requests are not treated as a single shared conversation and cannot be promised persistent affinity across requests.
-
-An upstream continuation may refer to state tied to its original account. Noria preserves that continuation unchanged on a safe retry; it does not invent missing state on the next account. If the upstream rejects a cross-account continuation, the error remains visible. This is one reason live account compatibility must be checked before relying on automatic failover.
-
-## Inspect environment output deliberately
-
-```bash
-noria env codex
-noria env claude
+```sh
+noria integrate claude
+noria integrate claude --yes
 ```
 
-`env` prints shell setup for intentional manual integration, including the **local gateway secret**. Codex output also defines a shell function carrying its command-local provider overrides; an environment variable alone does not install that provider configuration. Claude output sets `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, and `ENABLE_TOOL_SEARCH=true`.
+The target is `$CLAUDE_CONFIG_DIR/settings.json`, defaulting to `~/.claude/settings.json`. The equivalent manual fields are:
 
-Do not paste this output into issues, chat, recordings, or shared logs. Prefer `noria run` for ordinary use so routing overrides stay in the child process. Shell output is intended for POSIX shells; use the wrapper when a shell cannot apply it directly. The wrapper removes inherited direct-provider credential/route variables that could bypass Noria while retaining client config roots.
+```json
+{
+  "apiKeyHelper": "'/absolute/path/to/noria' auth-token --home '/absolute/path/to/.noria'",
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://127.0.0.1:43119/claude",
+    "ANTHROPIC_AUTH_TOKEN": "",
+    "ANTHROPIC_API_KEY": "",
+    "CLAUDE_CODE_OAUTH_TOKEN": "",
+    "ENABLE_TOOL_SEARCH": "true"
+  }
+}
+```
 
-Stopping the daemon makes its local route unavailable. Exit the wrapped client when finished or restart the gateway using the same Noria home. Noria does not silently redirect around itself or select a paid fallback.
+Merge them into existing JSON, rather than replacing the file. Empty direct-credential overrides keep inherited tokens from bypassing the helper; the integration backs up their original values. On Windows, let the CLI generate correct executable quoting and JSON path escaping.
+
+See [Anthropic's gateway setup guide](https://code.claude.com/docs/en/llm-gateway-connect) for settings precedence and supported client surfaces.
+
+## Custom roots and editors
+
+```sh
+noria integrate codex --client-home "$HOME/.gg/codex" --yes
+noria integrate claude --client-home "$HOME/.gg/claude" --yes
+```
+
+The menu offers detected roots and **Choose a Custom Client Folder…**. An editor that overrides the base URL, auth, or model provider must use the equivalent settings in its own integration.
+
+Claude Code in VS Code has an additional pre-launch check using VS Code's `claudeCode.environmentVariables`; user `settings.json` reaches the child process but may not satisfy that extension check. Consult the [VS Code section of the official gateway guide](https://code.claude.com/docs/en/llm-gateway-connect#vs-code-extension) when it still asks for login. Do not store the local gateway secret in a shared workspace file.
+
+## Claude Desktop has separate configuration
+
+Claude Desktop's third-party inference settings are not Claude Code's `settings.json`. Use its **Developer → Configure Third-Party Inference…** window after enabling Developer Mode under **Help → Troubleshooting**.
+
+Choose Gateway, set the base URL to `http://127.0.0.1:43119/claude`, choose a helper-script credential, and use Noria's absolute executable with arguments `auth-token`, `--home`, and the absolute Noria home. Choose Bearer authentication. If model discovery is unavailable, configure model IDs actually available to the pool; Noria does not substitute models.
+
+The corresponding configuration keys are `inferenceProvider`, `inferenceGatewayBaseUrl`, `inferenceCredentialKind`, `inferenceCredentialHelper`, `inferenceCredentialHelperArgs`, and `inferenceGatewayAuthScheme`. Use the [official configuration window guide](https://claude.com/docs/third-party/claude-desktop/in-app-configuration), [gateway guide](https://claude.com/docs/third-party/claude-desktop/gateway), and [helper reference](https://claude.com/docs/third-party/claude-desktop/credential-helper) for app-version and managed-policy requirements. This route has not been live-account validated by Noria.
+
+**Noria does not edit that separate Desktop form, so Stop does not undo it.** Return Desktop to its standard Anthropic sign-in configuration for direct use. Cloud/remote sessions cannot use this computer's loopback endpoint, and managed policy may prevent overrides.
+
+## Restore direct use
+
+`noria stop` restores routing fields for profiles registered through the menu or `integrate`. The normal client's saved login remains intact throughout; an already-running process may need reopening.
+
+Manually pasted snippets are not registered for restoration. Prefer `integrate` and inspect `noria integrations --json` to see managed files. The optional `noria run codex --` wrapper remains available for one-off tests, not ordinary setup.

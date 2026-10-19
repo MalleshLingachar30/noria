@@ -17,28 +17,27 @@ import "../styles/global.css";
         <p class="noria-eyebrow"><span aria-hidden="true">◉</span> Local account routing / Codex + Claude Code</p>
         <h1 id="hero-title">Keep your<br />agents in <em>flow.</em></h1>
         <p class="noria-hero__promise">One session. One account.<br />Until it is time to switch.</p>
-        <p class="noria-hero__lede">Noria pools your authorized Codex and Claude accounts on your machine. Sessions stay put until a limit requires a switch. New work goes where remaining allowance and reset clocks make sense.</p>
+        <p class="noria-hero__lede">Set up your accounts once, then use Codex or Claude Code normally. Noria runs quietly in the background, preserving warm sessions and choosing another account when a limit requires it.</p>
         <div class="noria-actions">
           <a class="button button--solid" href="/docs/quickstart">Install Noria <span aria-hidden="true">↗</span></a>
           <a class="noria-text-link" href="/docs/scheduling">Understand the routing <span aria-hidden="true">→</span></a>
         </div>
-        <p class="noria-hero__footnote">v0.1.0 · Open source · No paid fallback or model swaps</p>
+        <p class="noria-hero__footnote">v0.2.0 · Open source · No paid fallback or model swaps</p>
       </div>
 
       <div class="noria-workbench">
         <div class="noria-terminal" role="group" aria-label="Example Codex setup commands">
           <div class="noria-terminal__bar"><span aria-hidden="true">● ● ●</span><span>your terminal</span><span>01</span></div>
-          <pre><code><span class="noria-terminal__comment"># Install the local router</span>
+          <pre><code><span class="noria-terminal__comment"># One-time setup</span>
 <span class="noria-terminal__prompt">$</span> npm install -g @amxv/noria
-<span class="noria-terminal__prompt">$</span> noria init
+<span class="noria-terminal__prompt">$</span> noria account add codex
+<span class="noria-terminal__prompt">$</span> noria start
+<span class="noria-terminal__prompt">$</span> noria integrate codex --yes
 
-<span class="noria-terminal__comment"># Sign in to an isolated account</span>
-<span class="noria-terminal__prompt">$</span> noria account add work --provider codex
-<span class="noria-terminal__prompt">$</span> noria account login work
-<span class="noria-terminal__prompt">$</span> noria quota refresh
+<span class="noria-terminal__comment"># Then use your normal client</span>
+<span class="noria-terminal__prompt">$</span> codex
 
-<span class="noria-terminal__comment"># Start the gateway in this terminal</span>
-<span class="noria-terminal__prompt">$</span> noria serve</code></pre>
+<span class="noria-terminal__comment"># macOS: manage everything from N</span></code></pre>
         </div>
         <div class="noria-session" role="group" aria-label="Illustrative session routing">
           <p class="noria-eyebrow">Session affinity / illustrated</p>
@@ -95,17 +94,18 @@ import "../styles/global.css";
     </section>
 
     <section class="shell noria-native" aria-labelledby="native-title">
-      <div><p class="noria-eyebrow">Your tools. A local route.</p><h2 id="native-title">Same native clients.<br />A little more continuity.</h2><p>Go gateway. Native Responses and Messages protocols. Account profiles isolated under <code>~/.noria</code>. Your normal client history and settings stay in place.</p><p class="noria-release-note">Native clients are required. Claude quota reads also need Node and the pinned SDK bridge. <a href="/docs/accounts#claude-quota-bridge">Set up the Claude bridge →</a></p></div>
-      <div class="noria-native__commands"><p class="noria-eyebrow">In another terminal</p><pre><code>noria run codex --
-noria run claude --</code></pre><a class="noria-text-link" href="/docs/native-clients">Set up your client <span aria-hidden="true">→</span></a></div>
+      <div><p class="noria-eyebrow">Set it once. Keep it simple.</p><h2 id="native-title">Your accounts,<br />at a glance.</h2><p>The native macOS menu shows each account’s email, five-hour and weekly quota left, and reset times. Add accounts, pause routing, or check health without keeping a terminal open.</p><p class="noria-release-note">Native Go runtime. No Node or Agent SDK required for quota reads. <a href="/docs/quickstart">Install the menu bar and CLI →</a></p></div>
+      <div class="noria-native__commands"><p class="noria-eyebrow">Everyday controls</p><pre><code>noria status
+noria stop
+noria start</code></pre><p>Stop restores your managed client’s original direct settings and login.</p><a class="noria-text-link" href="/docs/native-clients">Connect your normal clients <span aria-hidden="true">→</span></a></div>
     </section>
 
     <section class="shell noria-start" aria-labelledby="start-title">
       <p class="noria-eyebrow">Ready when you are.</p>
       <h2 id="start-title">Give your next session<br /><em>room to keep going.</em></h2>
       <div class="noria-actions"><a class="button button--solid" href="/docs/quickstart">Follow the quickstart <span aria-hidden="true">↗</span></a><a class="noria-text-link" href="https://github.com/amxv/noria/releases">Download a binary <span aria-hidden="true">→</span></a></div>
-      <p>Sign in yourself. Start the local gateway. Keep working.</p>
-      <p class="noria-release-note" style="margin-inline:auto">When every matching account is exhausted, Noria reports unavailability. It cannot create extra quota or splice a partially delivered stream. Live multi-account use has not yet been validated. <a href="/docs/troubleshooting#compatibility-and-validation">Read the release limits →</a></p>
+      <p>Add accounts. Configure your clients once. Keep working.</p>
+      <p class="noria-release-note" style="margin-inline:auto">When every matching account is exhausted, Noria reports unavailability. It cannot create extra quota or splice a partially delivered stream. Live multi-account use has not yet been validated. <a href="/docs/troubleshooting#verified-locally">Read the release limits →</a></p>
     </section>
   </div>
 </BaseLayout>
