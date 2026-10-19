@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "0.3.0",
+  "version": "0.3.1",
   "running": true,
   "preferences": {"start_at_login": false, "menubar_at_login": false, "auto_update": true},
   "client_roots": [{"provider": "codex", "root": "/example/.codex"}],

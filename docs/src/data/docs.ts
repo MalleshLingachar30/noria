@@ -16,7 +16,7 @@ export const siteConfig = {
     {
       title: "Built in the open",
       text:
-        "v0.3.0 · Apache-2.0. Native installers for macOS, Linux, and Windows. No paid fallback or model swaps."
+        "v0.3.1 · Apache-2.0. Native installers for macOS, Linux, and Windows. No paid fallback or model swaps."
     },
     {
       title: "Source & releases",

@@ -48,6 +48,8 @@ type Target struct {
 	Registered bool   `json:"registered"`
 }
 
+const originalProviderMarker = "# >>> Noria original model provider (managed)\n"
+
 func Load(home string) (Store, error) {
 	s := Store{Entries: []Entry{}}
 	b, e := os.ReadFile(filepath.Join(home, "integrations.json"))
@@ -448,7 +450,12 @@ func deactivate(b []byte, v *Entry) ([]byte, error) {
 			}
 			source = strings.Replace(source, block, "", 1)
 		}
-		source = v.RootLine + source
+		if v.RootLine != "" {
+			if strings.Count(source, originalProviderMarker) != 1 {
+				return nil, errors.New("original Codex provider marker was changed; refusing to overwrite the user's settings")
+			}
+			source = strings.Replace(source, originalProviderMarker, v.RootLine, 1)
+		}
 		var parsed map[string]any
 		if e := toml.Unmarshal([]byte(source), &parsed); e != nil {
 			return nil, e
@@ -521,6 +528,9 @@ func activateCodex(home, exe, address string, b []byte, v *Entry) ([]byte, error
 	if e := toml.Unmarshal(b, &root); e != nil {
 		return nil, fmt.Errorf("invalid TOML: %w", e)
 	}
+	if strings.Contains(string(b), originalProviderMarker) {
+		return nil, errors.New("the Codex config already contains a Noria routing marker")
+	}
 	if _, exists := get(root, []string{"model_providers", "noria"}); exists {
 		return nil, errors.New("a noria provider already exists; use integration status or remove the previous manual definition first")
 	}
@@ -540,7 +550,7 @@ func activateCodex(home, exe, address string, b []byte, v *Entry) ([]byte, error
 			key, _, ok := strings.Cut(trim, "=")
 			if ok && strings.TrimSpace(key) == "model_provider" {
 				v.RootLine = line
-				lines[i] = ""
+				lines[i] = originalProviderMarker
 				found = true
 				break
 			}
@@ -552,7 +562,12 @@ func activateCodex(home, exe, address string, b []byte, v *Entry) ([]byte, error
 	v.RootBlock = "# >>> Noria routing (managed)\nmodel_provider = \"noria\"\n# <<< Noria routing\n"
 	v.Definition = "\n# >>> Noria provider (managed)\n[model_providers.noria]\nname = \"Noria\"\nbase_url = " + strconv.Quote("http://"+address+"/codex/v1") + "\nwire_api = \"responses\"\nsupports_websockets = true\n[model_providers.noria.auth]\ncommand = " + strconv.Quote(exe) + "\nargs = [\"auth-token\", \"--home\", " + strconv.Quote(home) + "]\n# <<< Noria provider\n"
 	source := v.RootBlock + strings.Join(lines, "") + v.Definition
-	if e := toml.Unmarshal([]byte(source), &root); e != nil {
+	// Validate the resulting TOML using a *fresh* destination. Unmarshalling
+	// again into root reuses nested array-table slices inside map interfaces;
+	// go-toml/v2 can panic with reflect.Value.SetLen on those unaddressable
+	// values (for example, Codex's [[skills.config]] entries).
+	var validated map[string]any
+	if e := toml.Unmarshal([]byte(source), &validated); e != nil {
 		return nil, e
 	}
 	v.Active = true

@@ -3,8 +3,13 @@ title: Changelog
 description: Release notes and validation boundaries for Noria.
 order: 11
 category: Reference
-summary: Noria v0.3.0 removes npm distribution and adds the native upgrade command.
+summary: Release notes for Noria, including the Codex settings fix in v0.3.1.
 ---
+
+## 0.3.1 · 2026-10-20
+
+- Fixed **Configure Codex** crashing when an existing `config.toml` contains nested arrays of tables, such as `[[skills.config]]`.
+- Keep the original `model_provider` line and its comments in place when stopping or removing Noria routing.
 
 ## 0.3.0 · 2026-10-20
 
