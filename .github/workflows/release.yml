@@ -82,8 +82,42 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-  github-release:
+  build-menubar:
     needs: build-binaries
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - goarch: arm64
+            swiftarch: arm64
+          - goarch: amd64
+            swiftarch: x86_64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: binary-darwin-${{ matrix.goarch }}
+          path: input
+      - name: Build and verify the native menu bar bundle
+        env:
+          NORIA_VERSION: ${{ github.ref_name }}
+        run: |
+          export NORIA_VERSION="${NORIA_VERSION#v}"
+          mkdir -p dist/package
+          apps/menubar/build.sh "$PWD/dist/package/Noria.app" "${{ matrix.swiftarch }}"
+          cp "input/noria_darwin_${{ matrix.goarch }}" dist/package/noria
+          chmod 755 dist/package/noria
+          cp LICENSE THIRD_PARTY_NOTICES.md dist/package/
+          codesign --verify --deep --strict dist/package/Noria.app
+          COPYFILE_DISABLE=1 tar --no-xattrs -C dist/package -czf "dist/noria_darwin_${{ matrix.goarch }}.tar.gz" noria Noria.app LICENSE THIRD_PARTY_NOTICES.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: menubar-darwin-${{ matrix.goarch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  github-release:
+    needs: [build-binaries, build-menubar]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -93,9 +127,9 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - name: Verify six binaries and generate checksums
+      - name: Verify binaries and bundles, then generate checksums
         run: |
-          test "$(find dist -maxdepth 1 -type f -name 'noria_*' | wc -l)" -eq 6
+          test "$(find dist -maxdepth 1 -type f -name 'noria_*' | wc -l)" -eq 8
           (cd dist && sha256sum noria_* > SHA256SUMS)
           cp LICENSE THIRD_PARTY_NOTICES.md dist/
           node scripts/release-notes.js > release-notes.md
@@ -142,3 +176,15 @@ jobs:
           npm install --global "@amxv/noria@${GITHUB_REF_NAME#v}"
           noria --version
           noria --help
+          export NORIA_HOME="$RUNNER_TEMP/noria-smoke"
+          noria init
+          noria health --json
+      - name: Verify published macOS bundle installation
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          export NORIA_HOME="$RUNNER_TEMP/noria-smoke"
+          noria menubar install
+          BIN_DIR="$(npm root -g)/@amxv/noria/bin"
+          codesign --verify --deep --strict "$BIN_DIR/Noria.app"
+          "$BIN_DIR/Noria.app/Contents/MacOS/noria-menubar" --check

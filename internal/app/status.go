@@ -14,6 +14,9 @@ import (
 type statusView struct {
 	Bindings int `json:"bindings"`
 	Accounts []struct {
+		Email          string          `json:"email,omitempty"`
+		Alias          string          `json:"alias,omitempty"`
+		DisplayName    string          `json:"display_name"`
 		ID             string          `json:"id"`
 		Provider       string          `json:"provider"`
 		Enabled        bool            `json:"enabled"`
@@ -80,7 +83,7 @@ func renderStatus(out io.Writer, data []byte, now time.Time) error {
 		if !account.Enabled {
 			state = "disabled"
 		}
-		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%d\t%s\n", account.ID, account.Provider, short, week, account.Inflight, state)
+		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%d\t%s\n", displayAccount(account.ID, account.Email, account.Alias), account.Provider, short, week, account.Inflight, state)
 	}
 	if err := table.Flush(); err != nil {
 		return err
@@ -126,4 +129,14 @@ func compactDuration(duration time.Duration) string {
 		parts = append(parts, fmt.Sprintf("%dm", minutes%60))
 	}
 	return strings.Join(parts, " ")
+}
+
+func displayAccount(id, email, alias string) string {
+	if alias != "" {
+		return alias
+	}
+	if email != "" {
+		return email
+	}
+	return id
 }

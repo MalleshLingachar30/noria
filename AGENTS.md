@@ -43,3 +43,11 @@ Run `make docs-check` then `make docs-build` **serially**. Never run Astro check
 Update `docs/src/content/docs/changelog.md` with real dated release notes before tagging. Follow `.agents/skills/release/SKILL.md` when the release skill is invoked. Native asset names stay `noria_<goos>_<goarch>[.exe]`; npm-installed binary stays `bin/noria-bin[.exe]`. Coordinate changes with both release workflow and postinstall.
 
 The public GitHub release origin and npm identity must match package metadata. GitHub Actions publishes on `v*` tags and needs its npm publishing credential (`NPM_TOKEN`). Do not print secrets or include `noria env` output in diagnostics. Pin the Claude SDK bridge explicitly, currently 0.3.287; do not install dependencies on the request path.
+
+## Noria v0.2 contracts
+
+Go owns all account, service, integration, quota and update state. Swift is a CLI wrapper only. The public lifecycle is start/stop/restart, not serve. Stop restores only registered client-routing fields; native auth files are not copied or replaced by integration. Emails are default labels; aliases are optional and never replace immutable routing IDs.
+
+Build the macOS menu with apps/menubar/build.sh. Distribution follows the verified native installer route: ad-hoc-signed app and CLI tarballs, SHA256SUMS, no Gatekeeper disabling or quarantine removal. No claim of Developer ID notarization.
+
+Core docs focus on user value and one-time setup; internals belong in Reference. Keep existing native account fixtures isolated and never run live login as an automated test.

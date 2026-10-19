@@ -1,94 +1,64 @@
 ---
 title: Troubleshooting
-description: Diagnose local setup, quota reads, account availability, and interrupted native streams.
-order: 8
-category: Reference
-summary: Practical checks and the current live-compatibility boundary.
+description: Fix common setup issues without exposing credentials or changing account limits.
+order: 6
+category: Use Noria
+summary: Fix common setup issues without exposing credentials or changing account limits.
 ---
 
-## Start with local checks
+## Start here
+
+Choose **Health Check** in the menu, or run:
 
 ```bash
-noria --version
-noria doctor
-noria account list
+noria health
 noria status
-```
-
-`doctor` checks local prerequisites needed by your enabled account providers and private profile permissions. It does not validate a subscription, spend live model quota, or prove a real multi-account workflow. Claude needs only its installed native executable for quota reading.
-
-Use the same `NORIA_HOME` in the daemon terminal and the client terminal. A different home means a different pool and local secret.
-
-## The daemon is unavailable
-
-Run `noria serve` and keep that terminal open. Check for a port conflict, then inspect the address printed at startup. You can select another numeric loopback port:
-
-```bash
-noria serve --listen 127.0.0.1:43120
-```
-
-Launch the client again with `noria run`. Manually exported environment values from an older daemon may still point to the old address. `status` can show saved state when the daemon is unavailable; saved metadata is not evidence that the gateway is running.
-
-## An account is missing or disabled
-
-```bash
-noria account list
-noria account enable work
-noria quota refresh
-```
-
-Check provider and model eligibility. Claude accounts cannot serve Codex requests, and a model restriction cannot grant upstream access to a model. Account commands request immediate live reload. If that reload reports failure, resolve the control error or restart the daemon. `quota refresh` also reloads configured accounts and updates their telemetry.
-
-## Login or authentication fails
-
-Use `noria account login <id>` to open the native sign-in flow for the intended profile. Do not fix it by copying your normal auth files into another account’s directory. Check that the native executable is on `PATH` and that sign-in finishes as the intended account.
-
-A login may need an interactive terminal and a browser. Complete this setup yourself. If it succeeds but the gateway still reports an auth blocker, run `noria quota refresh <id>` for a fresh account read. Do not attach credentials or raw native login output to an issue.
-
-## Claude quota reads fail
-
-```bash
-claude --version
 noria doctor
-noria quota refresh claude-work
 ```
 
-The reader starts the installed Claude executable with `CLAUDE_CONFIG_DIR` set to the isolated account profile and sends the experimental `get_usage` control request. An upstream change, incompatible schema, unavailable rate-limit data, or failed account auth can prevent a snapshot.
+Health checks the local endpoint and registered settings. It does not send a model prompt or spend usage to “test” an account.
 
-No SDK or Node.js setup is necessary. Check that Claude Code is installed and that this profile is signed in; report a redacted compatibility error when the internal control interface changes. Noria treats missing and partial telemetry as unknown, not as unlimited capacity.
+## My ordinary client is not using Noria
 
-## Every account is unavailable
+Run `noria integrations --json` and confirm the configuration home matches the one your client actually reads. Use **Configure Clients…** to choose another home, then reopen that client. For manual settings and GUI-specific exceptions, see [Connect your clients](/docs/native-clients).
 
-Read each account’s applicable five-hour, weekly, and model-scoped limits. A five-hour reset does not clear an exhausted weekly window. Authentication and cooldown blockers must also clear.
+Clear conflicting credential/base-URL/cloud-provider overrides. A host with its own command-line overrides, a managed Claude Desktop profile, or a remote environment can ignore your local settings.
 
-If no matching account can serve, Noria reports unavailability. An earliest retry estimate is returned only when enough reset information is known. It may be later than the next individual clock because all blockers on an account have to clear. With no known reset, refresh quota or address authentication rather than retrying in a tight loop.
+## I stopped Noria and an open client still tries localhost
 
-Noria does not purchase capacity or use paid fallback. Adding another profile for the same subscription does not create more allowance.
+Stop restores the files Noria manages. Some applications cache configuration until they restart: close and reopen that client. Its normal native login remains available. A manual Claude Desktop third-party configuration must be switched in the desktop app itself.
 
-## A session does not move to the account with more quota
+## An account shows unknown usage
 
-That is hard affinity working as intended. Scores matter at placement and failover. A healthy bound session is not moved merely because another account resets. After a necessary switch, it does not automatically return to the old account.
+```bash
+noria quota refresh
+noria account login person@example.com
+```
 
-If a client omits recognizable session metadata, the gateway cannot promise continuity across its requests. Use the supported native wrapper and retain native conversation identifiers. See [native client integration](/docs/native-clients).
+First refresh. If sign-in is required, use the account's **Sign In Again…** action. A disabled account can still show its last snapshot; failed reads never mean unlimited capacity. Your native Codex/Claude version must support the quota control interface.
 
-## A stream stops, or continuation is rejected
+## I accidentally signed in to the same account twice
 
-Noria cannot transparently splice an already delivered response across accounts. Review the native client’s error and conversation state before retrying, particularly when tools have run. Do not assume a second attempt can safely replay a tool action.
+The duplicate is not enabled as extra capacity. Remove the disabled pending entry or sign into the intended different account. Use `noria account list --json` for stable IDs when labels are ambiguous.
 
-Continuations may depend on state held by the original upstream account. Noria preserves the original continuation data on failover; another account may reject it. That error is surfaced instead of rewriting your conversation into a new request.
+## Updates are deferred
 
-## A lock remains after a crash
+An active generation has priority over a restart. Let it finish, then run `noria update` again, or leave automatic updates enabled. Downloads and checksums are verified before installation. An update error does not authorize a paid fallback or reset credit redemption.
 
-Noria uses local locks to protect shared configuration, native account operations, and daemon state. It does not silently steal a lock. Follow the error’s exact path and verify no Noria or account-control process still owns that operation before manually removing a stale lock. Never clear a live lock to launch a competing daemon on the same home.
+## A settings conflict is reported
+
+Noria refuses to overwrite a routing field changed by another tool after integration. Inspect the named file and its backup. Restore the managed field to its installed value, then use `noria integrate ... --remove --yes`, or remove the integration manually after reviewing the saved values. Do not restore an entire old backup over unrelated new settings.
+
+## macOS warns about a manually downloaded app
+
+Use the documented native installer, which follows the Zodex-style verified curl/tar path. The app is ad-hoc signed, not Developer ID notarized. A browser-downloaded quarantined copy may still be assessed differently. Noria does not disable Gatekeeper or strip quarantine flags. See [Security and distribution](/docs/security-and-limitations).
 
 ## Compatibility and validation
 
-v0.1.0 is an early release. Local automated tests use fake credentials, fake native processes, and HTTP/WebSocket test upstreams. **No actual live multi-account validation has been performed.** Transport tests do not prove that a current subscription backend accepts a cross-account continuation or every native client feature.
+Tests cover temporary profiles, fake provider backends, native Codex/Claude clients using saved configuration and token helpers, quota failover, resume, and service/configuration round trips. macOS launchd behavior is exercised locally. CI tests and builds cover macOS, Linux and Windows.
 
-Native Responses HTTP/SSE, native Messages HTTP/SSE, and Codex WebSocket forwarding are implementation surfaces. Early quota retry is bounded by the point where output is committed. Native client versions, provider authentication behavior, beta headers, experimental Claude usage schemas, and continuation rules can change.
+The installed native-client compatibility checks used Codex 0.162.1 and Claude Code 2.1.299. They did not use real subscription credentials or deliberately exhaust live account quotas. End-to-end live browser login and provider-specific quota accounting still need validation with the accounts you add.
 
-The installed Codex 0.162.1 and Claude Code 2.1.299 clients both passed a forced quota-failover check through Noria against local mock upstreams: Codex over WebSockets and Claude over HTTP/SSE. A second test completes a turn on account A, resumes the same saved conversation, rejects A's next request, and verifies account B receives the previous user and assistant turns. These checks used temporary profiles and fake credentials, not live subscription capacity. Node 24.22 was used for local validation. This is not a minimum-version guarantee. Complete your own explicit account login and controlled native session checks before relying on a pool. Noria does not run a live validation automatically.
+## Share a useful report
 
-## Report a reproducible issue
-
-Include the operating system, Noria and native client versions, redacted command and error, whether the daemon was running, and whether the failure was before or after output began. See [security and privacy](/docs/security-and-limitations#report-a-problem-without-secrets) for what to omit.
+Include Noria/native client versions, OS, the command, a redacted error, and whether output had already started. Do not include auth files, `noria env` output, token-helper output, raw requests, or a private-home archive.

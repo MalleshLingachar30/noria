@@ -1,96 +1,66 @@
 ---
-title: Install & quickstart
-description: Install Noria, sign in to isolated accounts, and route your first native coding session.
+title: Set up once, keep working
+description: Install Noria, add your accounts, and use your normal clients with automatic routing.
 order: 1
-category: Start
-summary: Install, add accounts, start the local gateway, and run a native client.
+category: Get started
+summary: Install Noria, add your accounts, and use your normal clients with automatic routing.
 ---
 
-Noria runs on your machine between your native coding clients and the accounts you sign in. A session stays with its assigned account until an applicable limit makes that account unavailable.
+Noria keeps your coding sessions on one account until an applicable limit is reached, then continues through another eligible account. After setup, open **Codex or Claude Code normally**. You do not need a special launch command for each session.
 
 ## 1. Install
 
-```bash
-npm install -g @amxv/noria
-noria --version
-noria --help
-```
-
-The npm installer downloads the native binary for your platform from [GitHub Releases](https://github.com/amxv/noria/releases). macOS, Linux, and Windows each have amd64 and arm64 builds. If the download fails, installation can fall back to a local Go build when Go is available. You can also download the matching binary directly from a release.
-
-Install the native `codex` or `claude` executable for the provider you want to use. Noria does not replace either client. Claude quota reads use the installed `claude` binary directly; no SDK or additional runtime installation is needed.
-
-Node is only needed to invoke the npm installation shim. A directly downloaded Go binary can route both Codex and Claude without Node or npm. Existing provider subscriptions and explicit authorization to use each account are prerequisites; Noria does not create them.
-
-## 2. Create your local configuration
+On macOS or Linux:
 
 ```bash
-noria init
+curl -fsSL https://noria.ashray.xyz/install.sh | bash
 ```
 
-The default home is `~/.noria`; set `NORIA_HOME` before running Noria to use another location. Initialization creates private local configuration and a random gateway secret. The default gateway address is `http://127.0.0.1:43119`.
+The installer verifies release checksums and installs into `~/.local/bin`. On macOS it also installs and opens the native **Noria** menu bar app. It does not change your existing Codex or Claude settings until you approve an integration.
 
-## 3. Add and sign in to your accounts
+On Windows, run this in PowerShell:
 
-For Codex:
+```powershell
+irm https://noria.ashray.xyz/install.ps1 | iex
+```
+
+Already use npm? `npm install -g @amxv/noria` remains available. On macOS, follow it with `noria menubar install` and `noria menubar open`. Standalone Noria binaries need neither Node.js nor an Agent SDK. Install the native `codex` and/or `claude` client you intend to use.
+
+## 2. Add your accounts
+
+In the macOS menu, choose **Add Codex Account…** or **Add Claude Account…**. Complete sign-in in your browser. Your account appears under its email address, followed by its five-hour and weekly usage.
+
+Without the menu bar:
 
 ```bash
-noria account add codex-work --provider codex
-noria account login codex-work
-noria account add codex-personal --provider codex
-noria account login codex-personal
+noria account add codex
+noria account add claude
 ```
 
-For Claude Code:
+Repeat for each distinct subscription. No invented account name is required. Use a different account at each sign-in; adding the same subscription twice does not create extra allowance. At least two accounts for a provider are needed for automatic failover.
+
+## 3. Configure your usual clients once
+
+Choose **Configure Clients…** in the menu and select the Codex or Claude Code profile you actually use. Review the path, then approve. Custom configuration folders can be selected too.
+
+The CLI equivalent previews the change first:
 
 ```bash
-noria account add claude-work --provider claude
-noria account login claude-work
+noria integrate codex
+noria integrate codex --yes
+
+noria integrate claude
+noria integrate claude --yes
 ```
 
-Each login opens the provider’s native interactive sign-in flow for an isolated Noria account profile. **You complete the sign-in yourself.** Noria does not import your normal client credentials. One account is enough to start; automatic failover needs another usable account for the same provider and requested model.
+Noria backs up the original settings, installs a local base URL and token helper, and starts its background service. **Reopen existing client windows once** so they pick up the new settings. Your normal login, history, skills, model settings, and project preferences remain intact.
 
-Claude quota reads use a control-only process of the installed `claude` executable. Noria sends no user prompts or model calls for telemetry. The protocol remains experimental and may change with Claude Code updates. See [accounts and authentication](/docs/accounts).
+For custom roots such as GoldenGoose, desktop-specific setup, or manual TOML/JSON snippets, see [Connect your clients](/docs/native-clients).
 
-## 4. Check availability
+## 4. Use your tools normally
 
-```bash
-noria doctor
-noria account list
-noria quota refresh
-```
+Run `codex`, run `claude`, or open a local client that reads the configured profile. Noria chooses accounts automatically and preserves session affinity. Open the menu to see usage and reset countdowns.
 
-Quota refresh reads provider telemetry. It does not send a dummy prompt, redeem reset credits, or turn unknown quota into a full allowance. A failed or incomplete read needs attention; see [troubleshooting](/docs/troubleshooting).
+Turn on **Launch Menu Bar at Login** and **Start Noria at Login** to make this your everyday setup. They are separate choices: the service can run without the menu bar.
 
-## 5. Start the gateway
-
-Keep this terminal open:
-
-```bash
-noria serve
-```
-
-In another terminal, use the same `NORIA_HOME` and start a client:
-
-```bash
-noria run codex --
-```
-
-Or:
-
-```bash
-noria run claude --
-```
-
-The wrapper supplies routing configuration to the child process. Your existing client home, conversation history, skills, and settings remain in place. It does not persistently rewrite your normal client configuration. See [native client integration](/docs/native-clients) for transport details and manual setup.
-
-## 6. Inspect the route
-
-```bash
-noria status
-noria status --json
-```
-
-Status is local operational metadata, not a transcript viewer. A healthy session keeps its account even when another account resets or has more headroom. After a necessary switch, the new account’s cache warms naturally.
-
-Read [how scheduling works](/docs/scheduling) and [security and privacy](/docs/security-and-limitations) before relying on a multi-account pool. Noria preserves the requested model and does not enable a paid fallback. When every matching account is unavailable, it reports that honestly. **Actual live multi-account validation has not yet been performed**; see [compatibility](/docs/troubleshooting#compatibility-and-validation).
+**Stop Noria** restores the direct settings of the profiles Noria manages; their normal native login is unchanged. **Start Noria** turns pool routing back on. Reopen clients that cache routing after switching. See [Everyday use](/docs/everyday-use).

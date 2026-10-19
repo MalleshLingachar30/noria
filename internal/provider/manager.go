@@ -6,11 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/amxv/noria/internal/config"
 	"github.com/amxv/noria/internal/model"
 )
 
@@ -25,7 +28,7 @@ type Manager struct {
 }
 
 func New(home string) *Manager {
-	return &Manager{home: home, gates: make(map[string]chan struct{}), snapshots: make(map[string]model.Snapshot), completed: make(map[string]time.Time), codexCommand: "codex", claudeCommand: "claude"}
+	return &Manager{home: home, gates: make(map[string]chan struct{}), snapshots: make(map[string]model.Snapshot), completed: make(map[string]time.Time), codexCommand: resolveNative(home, "codex"), claudeCommand: resolveNative(home, "claude")}
 }
 
 func (m *Manager) profile(a model.Account) (string, error) {
@@ -51,40 +54,7 @@ func (m *Manager) profile(a model.Account) (string, error) {
 }
 
 func (m *Manager) lock(ctx context.Context, profile string) (func(), error) {
-	m.mu.Lock()
-	gate := m.gates[profile]
-	if gate == nil {
-		gate = make(chan struct{}, 1)
-		m.gates[profile] = gate
-	}
-	m.mu.Unlock()
-	select {
-	case gate <- struct{}{}:
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-	lock := filepath.Join(profile, "native.lock")
-	ticker := time.NewTicker(30 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		f, err := os.OpenFile(lock, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-		if err == nil {
-			_, _ = fmt.Fprintf(f, "pid=%d\n", os.Getpid())
-			_ = f.Close()
-			return func() { _ = os.Remove(lock); <-gate }, nil
-		}
-		if !os.IsExist(err) {
-			<-gate
-			return nil, errors.New("cannot lock isolated account profile")
-		}
-		// Native login may be interactive, so never steal its lock based on age.
-		select {
-		case <-ticker.C:
-		case <-ctx.Done():
-			<-gate
-			return nil, ctx.Err()
-		}
-	}
+	return config.LockContext(ctx, profile, "native")
 }
 
 func (m *Manager) Credentials(ctx context.Context, a model.Account) (model.Credential, error) {
@@ -176,4 +146,28 @@ func (m *Manager) Doctor() []string {
 		}
 	}
 	return issues
+}
+
+func resolveNative(home, name string) string {
+	if p, e := exec.LookPath(name); e == nil {
+		return p
+	}
+	c, e := config.Load(home)
+	if e != nil {
+		return name
+	}
+	for _, dir := range filepath.SplitList(c.ToolPath) {
+		if !filepath.IsAbs(dir) {
+			continue
+		}
+		suffix := ""
+		if runtime.GOOS == "windows" {
+			suffix = ".exe"
+		}
+		p := filepath.Join(dir, name+suffix)
+		if st, e := os.Stat(p); e == nil && st.Mode().IsRegular() {
+			return p
+		}
+	}
+	return name
 }

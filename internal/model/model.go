@@ -4,12 +4,16 @@ package model
 import "time"
 
 type Account struct {
-	ID       string   `json:"id"`
-	Provider string   `json:"provider"`
-	Profile  string   `json:"profile"`
-	Enabled  bool     `json:"enabled"`
-	Endpoint string   `json:"endpoint,omitempty"`
-	Models   []string `json:"models,omitempty"`
+	ID            string    `json:"id"`
+	Email         string    `json:"email,omitempty"`
+	Alias         string    `json:"alias,omitempty"`
+	Authenticated bool      `json:"authenticated,omitempty"`
+	LastLogin     time.Time `json:"last_login,omitempty"`
+	Provider      string    `json:"provider"`
+	Profile       string    `json:"profile"`
+	Enabled       bool      `json:"enabled"`
+	Endpoint      string    `json:"endpoint,omitempty"`
+	Models        []string  `json:"models,omitempty"`
 }
 
 type Window struct {
@@ -42,4 +46,26 @@ type Rejection struct {
 	Model  string
 	Window string
 	Until  time.Time
+}
+
+// DisplayName never requires a user-supplied alias. IDs remain stable for routing.
+func (a Account) DisplayName() string {
+	if a.Alias != "" {
+		return a.Alias
+	}
+	if a.Email != "" {
+		return a.Email
+	}
+	return a.ID
+}
+
+// Label is presentation only; immutable IDs retain session affinity across renames.
+func (a Account) Label() string {
+	if a.Alias != "" {
+		return a.Alias
+	}
+	if a.Email != "" {
+		return a.Email
+	}
+	return "Sign-in required"
 }

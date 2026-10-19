@@ -63,7 +63,7 @@ func TestAccountRemoveRetainsProfileAndConfigRejectsTraversal(t *testing.T) {
 
 func TestAllCommandHelp(t *testing.T) {
 	t.Setenv("NORIA_HOME", t.TempDir())
-	for _, command := range [][]string{{"init"}, {"account"}, {"account", "add"}, {"serve"}, {"status"}, {"quota"}, {"quota", "refresh"}, {"doctor"}, {"env"}, {"run"}} {
+	for _, command := range [][]string{{"init"}, {"account"}, {"account", "add"}, {"start"}, {"stop"}, {"restart"}, {"integrate"}, {"preferences"}, {"health"}, {"status"}, {"quota"}, {"quota", "refresh"}, {"doctor"}, {"env"}, {"run"}} {
 		args := append(append([]string{}, command...), "--help")
 		var out bytes.Buffer
 		if e := Run(args, &out, &out); e != nil {

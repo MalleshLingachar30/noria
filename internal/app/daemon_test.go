@@ -85,11 +85,16 @@ func TestDaemonLifecycleControlAndRestart(t *testing.T) {
 		case <-time.After(3 * time.Second):
 			t.Fatal("daemon did not shut down")
 		}
-		for _, name := range []string{"daemon.json", "daemon.lock"} {
+		for _, name := range []string{"daemon.json"} {
 			if _, e := os.Stat(filepath.Join(home, name)); !os.IsNotExist(e) {
 				t.Fatalf("runtime file retained %s: %v", name, e)
 			}
 		}
+		relock, err := config.Lock(home, "daemon")
+		if err != nil {
+			t.Fatal("daemon ownership retained after shutdown", err)
+		}
+		relock()
 	}
 }
 

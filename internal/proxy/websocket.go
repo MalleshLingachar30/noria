@@ -51,7 +51,9 @@ func (s *Server) serveWebSocket(w http.ResponseWriter, r *http.Request, path str
 		return
 	}
 	s.sockets[client] = struct{}{}
+	s.socketWorkers.Add(1)
 	s.mu.Unlock()
+	defer s.socketWorkers.Done()
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 	defer func() { s.mu.Lock(); delete(s.sockets, client); s.mu.Unlock(); _ = client.Close() }()
@@ -62,8 +64,12 @@ func (s *Server) serveWebSocket(w http.ResponseWriter, r *http.Request, path str
 	var upstream *websocket.Conn
 	var accountID string
 	var pending *pendingResponse
+	activeCall := false
 	var warmed *pendingResponse
 	defer func() {
+		if activeCall {
+			s.endCall()
+		}
 		if upstream != nil {
 			_ = upstream.Close()
 		}
@@ -178,6 +184,11 @@ func (s *Server) serveWebSocket(w http.ResponseWriter, r *http.Request, path str
 					writeError("one active response per connection is supported; use another connection for concurrent responses")
 					return
 				}
+				if !s.beginCall() {
+					writeError("router is updating; reconnect shortly")
+					return
+				}
+				activeCall = true
 				pending = &pendingResponse{body: frame.body, model: modelName(object), session: sessionKey(r, object), excluded: map[string]bool{}}
 				var generate *bool
 				_ = json.Unmarshal(object["generate"], &generate)
@@ -271,6 +282,8 @@ func (s *Server) serveWebSocket(w http.ResponseWriter, r *http.Request, path str
 					_ = s.scheduler.Complete(pending.lease)
 				}
 				pending = nil
+				s.endCall()
+				activeCall = false
 			}
 		}
 	}

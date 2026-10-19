@@ -1,101 +1,39 @@
 ---
-title: Command reference
-description: Set up accounts, operate the local gateway, read quota, and launch native clients.
-order: 5
+title: CLI reference
+description: The CLI is the source of truth for routing, accounts, preferences and the menu bar.
+order: 10
 category: Reference
-summary: The v0.1.0 command surface and the side effects of each command.
+summary: The CLI is the source of truth for routing, accounts, preferences and the menu bar.
 ---
 
-Run `noria --help` for the overview and `<command> --help` for command-local usage. `noria --version` prints the installed version. Examples use a POSIX shell unless noted.
+The macOS app calls these same commands. Each supports `--help`; `--home PATH` selects a separate Noria pool.
 
-## Initialize
-
-```bash
-noria init
-```
-
-Creates the private Noria home, initial configuration, and random local gateway secret. Existing account registration is preserved. The default home is `~/.noria`; set `NORIA_HOME` to choose another.
-
-## Manage accounts
-
-```bash
-noria account add <id> --provider codex|claude [--model <model> ...]
-noria account login <id>
-noria account list
-noria account disable <id>
-noria account enable <id>
-noria account remove <id>
-```
-
-| Operation | Effect |
+| Command | Purpose |
 | --- | --- |
-| `add` | Registers an enabled account and creates an isolated profile. No credential import. |
-| `login` | Runs native `codex login` or `claude auth login` for that account. Interactive sign-in is your action. |
-| `list` | Lists account labels, provider, enabled state, and model restrictions. No credential values. |
-| `disable` / `enable` | Changes whether the account is eligible for routing. |
-| `remove` | Unregisters the account. Retains native profile credentials/history; does not securely erase or revoke them. |
+| `noria init` | Initialize private settings without replacing existing state |
+| `noria start` / `stop` / `restart` | Control the background service and registered client routing |
+| `noria status [--json]` | Cached account quotas, router state, integrations and preferences |
+| `noria account add codex\|claude [--alias NAME]` | Browser sign-in into a new email-first pool entry |
+| `noria account list [--json]` | Emails, aliases and immutable account IDs |
+| `noria account login ACCOUNT` | Sign in again and refresh identity/usage |
+| `noria account enable\|disable\|remove ACCOUNT` | Change eligibility or unregister an account |
+| `noria account rename ACCOUNT [ALIAS]` | Set an alias, or omit it to show the email |
+| `noria quota refresh [ACCOUNT]` | Read native quota without a model prompt |
+| `noria integrate codex\|claude [--client-home PATH]` | Preview persistent settings |
+| `noria integrate ... --yes` | Approve setup and start routing |
+| `noria integrate ... --remove --yes` | Restore direct settings and unregister the integration |
+| `noria integrations [--json]` | Inspect registered client profiles |
+| `noria integrate claude-desktop` | Print configuration for the desktop app's own form |
+| `noria health [--json]` | Local reachability and configuration checks |
+| `noria doctor` | Native tool and private-file prerequisites |
+| `noria preferences [KEY on\|off] [--json]` | Login/update preferences |
+| `noria update [--check] [--json]` | Check or install a verified stable release |
+| `noria menubar install` / `open` | Install or open the native macOS UI |
+| `noria run codex\|claude -- ...` | Optional child-only routing wrapper |
+| `noria env codex\|claude` | Advanced manual shell setup; contains the local token |
 
-The ID must be 1–64 letters, digits, underscores, or hyphens and start with a letter or digit. It is a local label, not an upstream account identifier. `--model` can be repeated and restricts exact requested model names; it never changes a request’s model.
+Preference keys are `start-at-login`, `menubar-at-login`, and `auto-update`. The menu bar setting is macOS-only.
 
-Registration and eligibility changes request immediate reload in a running daemon. A reported live-reload failure needs attention even if the configuration was saved. See [accounts](/docs/accounts) for auth isolation.
+`noria auth-token` exists for native credential helpers. It intentionally prints a secret; do not put its output into issues, recordings, or shared logs.
 
-## Serve
-
-```bash
-noria serve
-noria serve --listen 127.0.0.1:43120
-```
-
-Runs the gateway in the foreground. The default is `127.0.0.1:43119`. Numeric loopback listeners only. The daemon refreshes quota, maintains persisted affinity, and handles native provider requests. Stop it with Ctrl+C for graceful shutdown. Only one daemon should own a Noria home.
-
-## Inspect status
-
-```bash
-noria status
-noria status --json
-```
-
-Queries the local daemon when available, otherwise shows saved state and reports that the daemon is unavailable. The default table shows five-hour and weekly headroom, reset countdowns, in-flight requests, and account state. JSON adds scoped quota windows and precise timestamps. Both forms omit credentials, profile paths, and session identifiers. A saved snapshot can be stale; JSON output is not proof that an account can serve.
-
-## Refresh quota
-
-```bash
-noria quota refresh
-noria quota refresh <id>
-```
-
-Reads native quota telemetry for all enabled accounts or one account. With a running daemon, refresh updates its live scheduler. Otherwise it updates saved scheduler state while holding the appropriate local lock. Inspect the per-account results; an unavailable read does not mean free capacity.
-
-Codex uses `account/rateLimits/read` through the native app-server. Claude uses the explicit SDK bridge. Neither reader submits a user prompt or redeems reset credits.
-
-## Check prerequisites
-
-```bash
-noria doctor
-```
-
-Checks local configuration, permissions, native executables, and bridge installation. It does not authenticate a real workflow or run a live model request. Read diagnostics individually when only one provider is needed. See [troubleshooting](/docs/troubleshooting).
-
-## Launch a native client
-
-```bash
-noria run codex -- [native arguments...]
-noria run claude -- [native arguments...]
-```
-
-Runs the installed native executable with child-only routing overrides. It retains the user’s existing client history/config roots and does not persistently rewrite them. Arguments after `--` go to the native client. The daemon must be running separately.
-
-## Print manual setup
-
-```bash
-noria env codex
-noria env claude
-```
-
-Prints POSIX shell configuration/instructions for intentional integration. **This output contains local gateway authentication.** Do not publish it or capture it in shared logs. Prefer the `run` wrapper for routine launches. See [native client integration](/docs/native-clients).
-
-## Claude usage reads
-
-No additional setup step is required beyond installing the native `claude` executable and completing `noria account login <id>`. Noria sends `get_usage` through Claude's control-only streaming interface. It does not require Node.js or an Agent SDK dependency for quota reads. The control protocol remains experimental.
-
-The pinned usage method is experimental and validated at runtime. This setup does not log into an account or send a model prompt.
+The old profile-only `account add <id> --provider ...` form remains compatible with existing scripts. There is no public blocking `serve` command.

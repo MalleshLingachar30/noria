@@ -19,8 +19,11 @@ import (
 
 	"github.com/amxv/noria/internal/config"
 	"github.com/amxv/noria/internal/core"
+	"github.com/amxv/noria/internal/integration"
+	"github.com/amxv/noria/internal/model"
 	"github.com/amxv/noria/internal/provider"
 	"github.com/amxv/noria/internal/proxy"
+	"github.com/amxv/noria/internal/service"
 )
 
 type runtimeInfo struct {
@@ -63,26 +66,65 @@ func (r *refresher) refresh(ctx context.Context, id string) ([]refreshResult, er
 	if e = r.s.SetAccounts(c.Accounts); e != nil {
 		return nil, e
 	}
-	results := []refreshResult{}
+
+	accounts := []model.Account{}
 	for _, a := range c.Accounts {
-		if !a.Enabled || id != "" && a.ID != id {
+		if id != "" && a.ID != id {
 			continue
 		}
-		if ctx.Err() != nil {
-			return results, ctx.Err()
+		if !a.Enabled && !a.Authenticated && id == "" {
+			continue
 		}
-		deadline, cancel := context.WithTimeout(ctx, 25*time.Second)
-		snap, err := r.p.Refresh(deadline, a)
-		cancel()
-		if err == nil {
-			err = r.s.Update(snap)
-		}
-		result := refreshResult{Account: a.ID, OK: err == nil}
-		if err != nil {
-			result.Error = err.Error()
-		}
-		results = append(results, result)
+		accounts = append(accounts, a)
 	}
+	results := make([]refreshResult, len(accounts))
+	slots := make(chan struct{}, 4)
+	var group sync.WaitGroup
+	for i, a := range accounts {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		group.Add(1)
+		go func(i int, a model.Account) {
+			defer group.Done()
+			select {
+			case slots <- struct{}{}:
+			case <-ctx.Done():
+				results[i] = refreshResult{Account: a.ID, Error: "refresh cancelled"}
+				return
+			}
+			defer func() { <-slots }()
+			deadline, cancel := context.WithTimeout(ctx, 25*time.Second)
+			defer cancel()
+			if a.Email == "" {
+				if identity, e := r.p.Identity(deadline, a); e == nil && identity.Authenticated && identity.Email != "" {
+					_ = config.Change(r.home, func(current *config.Config) error {
+						for index := range current.Accounts {
+							if current.Accounts[index].ID == a.ID {
+								current.Accounts[index].Email = identity.Email
+								current.Accounts[index].Authenticated = true
+							}
+						}
+						return nil
+					})
+				}
+			}
+			snap, e := r.p.Refresh(deadline, a)
+			if e == nil {
+				e = r.s.Update(snap)
+			}
+			result := refreshResult{Account: a.ID, OK: e == nil}
+			if e != nil {
+				result.Error = e.Error()
+			}
+			results[i] = result
+		}(i, a)
+	}
+	group.Wait()
+	if current, e := config.Load(r.home); e == nil {
+		_ = r.s.SetAccounts(current.Accounts)
+	}
+
 	return results, nil
 }
 
@@ -118,7 +160,7 @@ func serveWithContext(parent context.Context, home string, args []string, out, e
 	if e != nil {
 		return e
 	}
-	unlock, e := config.Lock(home, "daemon")
+	unlock, e := service.Guard(home, "daemon")
 	if e != nil {
 		return e
 	}
@@ -133,7 +175,7 @@ func serveWithContext(parent context.Context, home string, args []string, out, e
 	ctx, stop := context.WithCancel(parent)
 	defer stop()
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/_noria/refresh" && r.URL.Path != "/_noria/reload" {
+		if r.URL.Path != "/_noria/refresh" && r.URL.Path != "/_noria/reload" && r.URL.Path != "/_noria/shutdown" {
 			gateway.ServeHTTP(w, r)
 			return
 		}
@@ -159,6 +201,12 @@ func serveWithContext(parent context.Context, home string, args []string, out, e
 		// so future public health endpoints cannot widen control authorization.
 		if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+secret)) != 1 {
 			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if r.URL.Path == "/_noria/shutdown" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"ok":true}`)
+			go func() { time.Sleep(50 * time.Millisecond); stop() }()
 			return
 		}
 		if r.URL.Path == "/_noria/reload" {
@@ -222,6 +270,16 @@ func serveWithContext(parent context.Context, home string, args []string, out, e
 			}
 		}
 	}()
+	exe, _ := service.Executable()
+	if service.ReadIntent(home).Wanted || c.StartAtLogin {
+		_ = service.SetIntent(home, exe, true)
+		if err := integration.SetActive(home, exe, actual, true); err != nil {
+			fmt.Fprintln(errOut, "Client integration needs attention:", err)
+		}
+	}
+	if service.ReadIntent(home).Wanted {
+		startAutomaticUpdates(ctx, home, &workers)
+	}
 	fmt.Fprintln(out, "Noria listening on http://"+actual)
 	select {
 	case <-ctx.Done():

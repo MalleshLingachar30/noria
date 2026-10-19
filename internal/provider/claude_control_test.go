@@ -52,7 +52,7 @@ func claudeFixture() {
 		}
 		fmt.Fprintln(trace, req.Request.Subtype)
 		if mode == "hang" {
-			select {}
+			time.Sleep(time.Hour)
 		}
 		if mode == "activity" {
 			_ = encoder.Encode(map[string]any{"type": "assistant", "message": map[string]any{"role": "assistant"}})

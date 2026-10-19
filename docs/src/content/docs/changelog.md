@@ -1,10 +1,21 @@
 ---
 title: Changelog
 description: Release notes and validation boundaries for Noria.
-order: 11
-category: Development
-summary: Noria v0.1.1 removes the Claude Node SDK dependency.
+order: 16
+category: Reference
+summary: Noria v0.2.0 adds one-time client setup, background service controls, and the native macOS menu bar.
 ---
+
+## 0.2.0 · 2026-10-20
+
+- One-time, previewable Codex/Claude Code integration with native credential helpers, private backups, and conflict-aware restoration. Ordinary client launches can use the pool without a wrapper.
+- Nonblocking start, stop, and restart on macOS, Linux, and Windows. Stop restores registered direct-client settings while retaining the original native login. Removed the public foreground serve command.
+- Native Swift macOS menu bar with account quotas and reset countdowns, asynchronous refresh on open, browser sign-in, optional aliases, per-account controls, and Health Check.
+- Email-first account labels and immutable routing IDs. Relogin disables the entry until identity is confirmed; duplicate identities do not become duplicate capacity.
+- Separate menu-bar and service-at-login preferences. Verified CLI/app updates defer around active requests and are controlled by the Go CLI.
+- Native installers, ad-hoc-signed macOS app bundles, and focused everyday-use documentation.
+
+The live provider/account boundary remains: automated native-client tests use fake upstreams and isolated accounts. App-specific Claude Desktop configuration is separate from the registered CLI settings.
 
 ## 0.1.1 · 2026-10-20
 

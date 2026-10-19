@@ -13,10 +13,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/amxv/noria/internal/config"
 	"github.com/amxv/noria/internal/model"
 )
 
 func TestMain(m *testing.M) {
+	if os.Getenv("GO_PROVIDER_FIXTURE") == "native-login" {
+		nativeLoginFixture()
+		os.Exit(0)
+	}
 	if os.Getenv("GO_PROVIDER_FIXTURE") == "codex" {
 		codexFixture()
 		os.Exit(0)
@@ -200,9 +205,11 @@ func TestCodexNativeRefreshAndCredentialIsolation(t *testing.T) {
 	if err != nil || strings.Count(string(calls), "refreshToken=true") != 1 || strings.Count(string(calls), "refreshToken=false") != 1 {
 		t.Fatalf("passive quota reads must not rotate credentials: %s (%v)", calls, err)
 	}
-	if _, err := os.Stat(filepath.Join(a.Profile, "native.lock")); !os.IsNotExist(err) {
-		t.Fatal("lock leaked")
+	relock, err := config.Lock(a.Profile, "native")
+	if err != nil {
+		t.Fatal("lock ownership leaked", err)
 	}
+	relock()
 	outside := t.TempDir()
 	a.Profile = outside
 	if _, err := m.Credentials(context.Background(), a); err == nil {
@@ -224,9 +231,12 @@ func TestNativeDeadlineAndCrossProcessLock(t *testing.T) {
 	if time.Since(start) > 2*time.Second {
 		t.Fatal("control cancellation did not clean up promptly")
 	}
-	if err := os.WriteFile(filepath.Join(a.Profile, "native.lock"), []byte("another process"), 0600); err != nil {
+	held, err := config.Lock(a.Profile, "native")
+	if err != nil {
 		t.Fatal(err)
 	}
+	defer held()
+	t.Setenv("GO_FIXTURE_HANG", "")
 	ctx2, cancel2 := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel2()
 	if _, err := m.Refresh(ctx2, a); err == nil {

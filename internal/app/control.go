@@ -18,9 +18,20 @@ import (
 	"github.com/amxv/noria/internal/config"
 	"github.com/amxv/noria/internal/core"
 	"github.com/amxv/noria/internal/provider"
+	"github.com/amxv/noria/internal/service"
 )
 
 func controlRequest(home, method, path string, payload any) ([]byte, error) {
+	timeout := 2 * time.Second
+	if path == "/_noria/refresh" {
+		timeout = 2 * time.Minute
+	}
+	if path == "/_noria/health" {
+		timeout = 700 * time.Millisecond
+	}
+	return controlRequestTimeout(home, method, path, payload, timeout)
+}
+func controlRequestTimeout(home, method, path string, payload any, timeout time.Duration) ([]byte, error) {
 	c, e := config.Load(home)
 	if e != nil {
 		return nil, e
@@ -36,7 +47,7 @@ func controlRequest(home, method, path string, payload any) ([]byte, error) {
 			return nil, e
 		}
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	req, e := http.NewRequestWithContext(ctx, method, "http://"+daemonAddress(home, c.Listen)+path, bytes.NewReader(body))
 	if e != nil {
@@ -49,7 +60,7 @@ func controlRequest(home, method, path string, payload any) ([]byte, error) {
 	defer client.CloseIdleConnections()
 	resp, e := client.Do(req)
 	if e != nil {
-		return nil, fmt.Errorf("daemon unavailable (run noria serve): %w", e)
+		return nil, fmt.Errorf("daemon unavailable (run noria start): %w", e)
 	}
 	defer resp.Body.Close()
 	b, e := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
@@ -64,7 +75,7 @@ func controlRequest(home, method, path string, payload any) ([]byte, error) {
 
 func status(home string, args []string, out, errOut io.Writer) error {
 	f := flags("status", errOut)
-	asJSON := f.Bool("json", false, "print redacted JSON status")
+	asJSON := f.Bool("json", false, "redacted structured status")
 	if e := f.Parse(args); e != nil {
 		if errors.Is(e, flag.ErrHelp) {
 			return nil
@@ -72,43 +83,25 @@ func status(home string, args []string, out, errOut io.Writer) error {
 		return e
 	}
 	if f.NArg() != 0 {
-		return fmt.Errorf("usage: noria status [--json]")
+		return errors.New("usage: noria status [--json]")
 	}
-	c, e := config.Load(home)
-	if e != nil {
-		return e
-	}
-	b, liveErr := controlRequest(home, http.MethodGet, "/_noria/status", nil)
-	if liveErr == nil {
-		if *asJSON {
-			_, e = out.Write(b)
-			return e
-		}
-		fmt.Fprintln(out, "Noria running at http://"+daemonAddress(home, c.Listen))
-		return renderStatus(out, b, time.Now())
-	}
-	// Loading persisted state is safe only when no daemon holds the state lock.
-	// Status avoids opening a second scheduler that could rewrite live state.
-	// Construction and Status are read-only. Never expose raw persisted
-	// bindings, credentials, or endpoint/profile details in diagnostics.
-	saved, e := core.New(statePath(home), c.Accounts)
-	if e != nil {
-		return e
-	}
-	data, e := json.Marshal(saved.Status())
+	v, e := dashboard(home)
 	if e != nil {
 		return e
 	}
 	if *asJSON {
-		var result map[string]any
-		if e = json.Unmarshal(data, &result); e != nil {
-			return e
-		}
-		result["running"] = false
-		return printJSON(out, result)
+		return printJSON(out, v)
 	}
-	fmt.Fprintln(out, "Noria is not reachable; showing the last saved quota snapshot.")
-	return renderStatus(out, data, time.Now())
+	if v["running"] == true {
+		fmt.Fprintln(out, "Noria is running.")
+	} else {
+		fmt.Fprintln(out, "Noria is stopped. Direct client routing is available.")
+	}
+	b, e := json.Marshal(v)
+	if e != nil {
+		return e
+	}
+	return renderStatus(out, b, time.Now())
 }
 
 func quota(home string, args []string, out, errOut io.Writer) error {
@@ -144,7 +137,7 @@ func quota(home string, args []string, out, errOut io.Writer) error {
 		}
 		return nil
 	}
-	unlock, e := config.Lock(home, "daemon")
+	unlock, e := service.Guard(home, "daemon")
 	if e != nil {
 		return fmt.Errorf("live refresh failed and scheduler is locked: %w", e)
 	}

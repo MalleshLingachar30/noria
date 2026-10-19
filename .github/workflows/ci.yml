@@ -38,6 +38,24 @@ jobs:
         run: npm test
       - name: Build
         run: go build ./cmd/noria
+      - name: Real background service smoke (isolated home)
+        shell: bash
+        run: |
+          export NORIA_SERVICE_COMPAT=1
+          if [ "$RUNNER_OS" = Windows ]; then export NORIA_TEST_NORIA_BIN="$GITHUB_WORKSPACE/noria.exe"; else export NORIA_TEST_NORIA_BIN="$GITHUB_WORKSPACE/noria"; fi
+          go test ./internal/app -run TestBackgroundServiceAndDirectRouting -v -count=1 -timeout 120s
+      - name: Installer syntax
+        shell: bash
+        run: bash -n docs/public/install.sh
+      - name: PowerShell installer syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'docs/public/install.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { throw ($errors | Out-String) }
+
 
   docs:
     runs-on: ubuntu-latest
@@ -51,3 +69,14 @@ jobs:
           make docs-install
           make docs-check
           make docs-build
+
+  native-menubar:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build both macOS menu architectures
+        run: |
+          apps/menubar/build.sh "$PWD/dist/arm64/Noria.app" arm64
+          apps/menubar/build.sh "$PWD/dist/amd64/Noria.app" x86_64
+          codesign --verify --deep --strict dist/arm64/Noria.app
+          codesign --verify --deep --strict dist/amd64/Noria.app
