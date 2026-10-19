@@ -1,111 +1,85 @@
 ---
-import BaseLayout from "zuedocs/layouts/BaseLayout.astro";
-import { primaryNav, siteConfig } from "../data/docs";
-import "../styles/global.css";
+import BaseLayout from 'zuedocs/layouts/BaseLayout.astro';
+import RouterDemo from '../components/RouterDemo.astro';
+import { primaryNav, siteConfig } from '../data/docs';
+import '../styles/global.css';
 ---
 
 <BaseLayout
-  title="Noria | Keep your agents in flow"
-  description={siteConfig.description}
+  title="Noria — Maximize your Codex & Claude Code limits"
+  description="A smart local proxy that routes Codex and Claude Code sessions across multiple accounts. Use more of your available quota without constantly switching logins."
   siteConfig={siteConfig}
   primaryNav={primaryNav}
 >
   <a class="skip-link" href="#content">Skip to content</a>
-  <div id="content" class="noria-home">
-    <section class="shell noria-hero" aria-labelledby="hero-title">
-      <div class="noria-hero__copy">
-        <p class="noria-eyebrow"><span aria-hidden="true">◉</span> Local account routing / Codex + Claude Code</p>
-        <h1 id="hero-title">Keep your<br />agents in <em>flow.</em></h1>
-        <p class="noria-hero__promise">One session. One account.<br />Until it is time to switch.</p>
-        <p class="noria-hero__lede">Set up your accounts once, then use Codex or Claude Code normally. Noria runs quietly in the background, preserving warm sessions and choosing another account when a limit requires it.</p>
-        <div class="noria-actions">
-          <a class="button button--solid" href="/docs/quickstart">Install Noria <span aria-hidden="true">↗</span></a>
-          <a class="noria-text-link" href="/docs/scheduling">Understand the routing <span aria-hidden="true">→</span></a>
+  <div id="content" class="landing">
+    <section class="shell landing-hero" aria-labelledby="hero-title">
+      <div class="landing-hero__copy">
+        <p class="kicker"><span class="kicker__glyph" aria-hidden="true">✳</span> Local smart proxy · Codex & Claude Code</p>
+        <h1 id="hero-title">More limits.<br /><span>Less logging in.</span></h1>
+        <p class="landing-hero__lede">You've got multiple coding accounts. You shouldn't have to keep switching between them. Noria intelligently routes your Codex and Claude Code sessions across your accounts, so you get more out of your available usage and spend less time managing logins.</p>
+        <div class="landing-actions">
+          <a class="landing-button landing-button--primary" href="/docs/quickstart">Get started <span aria-hidden="true">↗</span></a>
+          <a class="landing-button landing-button--secondary" href="/docs/architecture">See how it works <span aria-hidden="true">→</span></a>
         </div>
-        <p class="noria-hero__footnote">v0.3.1 · Native installer · No paid fallback or model swaps</p>
+        <div class="landing-hero__chips"><span>Runs on your machine</span><span>Keeps sessions sticky</span><span>Works with your normal clients</span></div>
       </div>
-
-      <div class="noria-workbench">
-        <div class="noria-terminal" role="group" aria-label="Example Codex setup commands">
-          <div class="noria-terminal__bar"><span aria-hidden="true">● ● ●</span><span>your terminal</span><span>01</span></div>
-          <pre><code><span class="noria-terminal__comment"># One-time setup</span>
-<span class="noria-terminal__prompt">$</span> curl -fsSL https://noria.ashray.xyz/install.sh | sh
-<span class="noria-terminal__prompt">$</span> noria account add codex
-<span class="noria-terminal__prompt">$</span> noria start
-<span class="noria-terminal__prompt">$</span> noria integrate codex --yes
-
-<span class="noria-terminal__comment"># Then use your normal client</span>
-<span class="noria-terminal__prompt">$</span> codex
-
-<span class="noria-terminal__comment"># macOS: manage everything from N</span></code></pre>
+      <div class="landing-hero__visual" aria-label="Illustration: several accounts feeding one local coding workflow">
+        <div class="landing-hero__visual-heading"><span class="kicker">One connection. Your whole pool.</span><span class="landing-hero__signal"><i></i> Local</span></div>
+        <div class="landing-hero__pool">
+          <div class="landing-hero__pool-row"><span class="landing-hero__pool-letter">A</span><div><strong>Account one</strong><small>18m until weekly reset</small></div><span class="landing-hero__pool-track"><i style="width:5%"></i></span><b>5%</b></div>
+          <div class="landing-hero__pool-row"><span class="landing-hero__pool-letter">B</span><div><strong>Account two</strong><small>6d until weekly reset</small></div><span class="landing-hero__pool-track"><i style="width:80%"></i></span><b>80%</b></div>
+          <div class="landing-hero__pool-row"><span class="landing-hero__pool-letter">C</span><div><strong>Account three</strong><small>12h until weekly reset</small></div><span class="landing-hero__pool-track"><i style="width:32%"></i></span><b>32%</b></div>
         </div>
-        <div class="noria-session" role="group" aria-label="Illustrative session routing">
-          <p class="noria-eyebrow">Session affinity / illustrated</p>
-          <div class="noria-session__path"><span>Session 01</span><span aria-hidden="true">→</span><strong>Account A</strong></div>
-          <div class="noria-session__requests" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <p>Every request stays here while this account can serve.</p>
-        </div>
+        <div class="landing-hero__convergence" aria-hidden="true"><i></i><span>↓</span><i></i></div>
+        <div class="landing-hero__proxy"><span class="landing-hero__proxy-logo">N</span><span><strong>noria</strong><small>Smart account router</small></span><span class="landing-hero__proxy-status">Routing locally ↗</span></div>
+        <div class="landing-hero__convergence landing-hero__convergence--short" aria-hidden="true"><span>↓</span></div>
+        <div class="landing-hero__client"><span class="terminal-caret">›_</span><strong>Your Codex / Claude Code session</strong><span>Keep coding as usual.</span></div>
+        <p class="landing-hero__visual-foot">Illustrative quotas, not live data</p>
       </div>
     </section>
 
-    <section class="shell noria-principles" aria-label="Three routing principles">
-      <article><span class="noria-number">01 / Stay</span><h2>Keep the warm path.</h2><p>A healthy session keeps its account. A better score or another account’s reset does not move it.</p></article>
-      <article><span class="noria-number">02 / Place</span><h2>Use the next window well.</h2><p>New sessions weigh independent five-hour and weekly windows, expected usage, and work already assigned.</p></article>
-      <article><span class="noria-number">03 / Continue</span><h2>Switch at a real limit.</h2><p>Retry the pending request on another eligible account before output starts. Keep the same model and request.</p></article>
-    </section>
+    <section class="landing-strip" aria-label="What Noria does"><div class="shell landing-strip__inner">
+      <div><span aria-hidden="true">↗</span><strong>Spread work across accounts</strong></div>
+      <div><span aria-hidden="true">↻</span><strong>Switch when a limit hits</strong></div>
+      <div><span aria-hidden="true">⌘</span><strong>Keep using your normal tools</strong></div>
+    </div></section>
 
-    <section class="shell noria-quota" aria-labelledby="quota-title">
-      <div class="noria-section-heading">
-        <p class="noria-eyebrow">The next account is a scheduling decision.</p>
-        <h2 id="quota-title">More headroom is only<br /><em>part of the picture.</em></h2>
-        <p>Five-hour and weekly allowances expire independently. A little weekly quota that resets soon can be more useful now than a larger allowance with days left. Noria also accounts for reservations and load.</p>
-      </div>
-      <figure class="noria-ledger">
-        <figcaption><strong>An illustrative pool</strong><span>Example values · remaining quota</span></figcaption>
-        <div class="noria-ledger__scroll" role="region" aria-label="Example quota pool" tabindex="0">
-          <table>
-            <thead><tr><th scope="col">Account</th><th scope="col">Five-hour window</th><th scope="col">Weekly window</th><th scope="col">Placement</th></tr></thead>
-            <tbody>
-              <tr class="noria-ledger__preferred"><th scope="row"><span class="noria-account">A</span></th><td><strong>72% left</strong><span>resets in 3 hours</span></td><td><strong>5% left</strong><span>resets in 18 minutes</span></td><td><span class="noria-tag">New session candidate</span></td></tr>
-              <tr><th scope="row"><span class="noria-account">B</span></th><td><strong>84% left</strong><span>resets in 4 hours</span></td><td><strong>61% left</strong><span>resets in 4 days</span></td><td>Existing sessions stay</td></tr>
-              <tr><th scope="row"><span class="noria-account">C</span></th><td><strong>90% left</strong><span>resets in 2 hours</span></td><td><strong>Exhausted</strong><span>resets in 6 hours</span></td><td>Weekly limit blocks use</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="noria-ledger__note">A may suit a new session if its expected usage and current reservations allow. B keeps its healthy sessions. C must clear its weekly limit first. This is an explanation, not live telemetry or a promised selection.</p>
-      </figure>
-    </section>
-
-    <section class="shell noria-cache" aria-labelledby="cache-title">
-      <div class="noria-cache__diagram" role="group" aria-label="A session changes accounts only after an applicable limit">
-        <p class="noria-eyebrow">A session’s route</p>
-        <div class="noria-route-step"><span class="noria-route-step__marker">A</span><div><strong>Start. Stay. Keep working.</strong><p>Account A’s cache remains account-local.</p></div></div>
-        <div class="noria-route-divider"><span>Applicable limit reached</span><span aria-hidden="true">↓</span></div>
-        <div class="noria-route-step"><span class="noria-route-step__marker">B</span><div><strong>Retry. Warm. Stay.</strong><p>The pending request continues on B when safe.</p></div></div>
-        <p class="noria-cache__caption">No automatic return to A when its allowance resets.</p>
-      </div>
-      <div class="noria-section-heading">
-        <p class="noria-eyebrow">Cache belongs to the account.</p>
-        <h2 id="cache-title">Let a good<br /><em>session settle in.</em></h2>
-        <p>Hard affinity keeps requests on the same account while it is usable. After a necessary switch, the new account’s cache warms through normal work. Noria does not migrate caches or transcripts.</p>
-        <p>The tradeoff is deliberate: a single healthy session will not use every account’s spare quota. Run independent sessions to make use of a wider pool.</p>
-        <a class="noria-text-link" href="/docs/security-and-limitations">Read the limits before you start <span aria-hidden="true">→</span></a>
+    <section class="shell landing-explainer" aria-labelledby="explain-title">
+      <div class="section-heading"><p class="kicker">The idea</p><h2 id="explain-title">One smart layer between you and your limits.</h2><p>Codex and Claude Code each have their own usage windows. When you use several accounts, keeping track of those windows becomes a job of its own. Noria handles the routing instead.</p></div>
+      <div class="landing-steps">
+        <article><span class="step-index">01</span><span class="step-icon" aria-hidden="true">＋</span><h3>Connect your accounts.</h3><p>Sign in to each Codex or Claude Code account once. Your pool is ready when you need it.</p></article>
+        <article><span class="step-index">02</span><span class="step-icon" aria-hidden="true">↗</span><h3>Point your clients at Noria.</h3><p>A one-time configuration sends your normal coding sessions through the local proxy.</p></article>
+        <article><span class="step-index">03</span><span class="step-icon" aria-hidden="true">∞</span><h3>Forget account switching.</h3><p>Noria chooses an account for new sessions and switches when a usable one reaches its limit.</p></article>
       </div>
     </section>
 
-    <section class="shell noria-native" aria-labelledby="native-title">
-      <div><p class="noria-eyebrow">Set it once. Keep it simple.</p><h2 id="native-title">Your accounts,<br />at a glance.</h2><p>The native macOS menu shows each account’s email, five-hour and weekly quota left, and reset times. Add accounts, pause routing, or check health without keeping a terminal open.</p><p class="noria-release-note">Native Go runtime. No Node or Agent SDK required for quota reads. <a href="/docs/quickstart">Install the menu bar and CLI →</a></p></div>
-      <div class="noria-native__commands"><p class="noria-eyebrow">Everyday controls</p><pre><code>noria status
-noria stop
-noria start</code></pre><p>Stop restores your managed client’s original direct settings and login.</p><a class="noria-text-link" href="/docs/native-clients">Connect your normal clients <span aria-hidden="true">→</span></a></div>
+    <section class="landing-demo-section" aria-labelledby="demo-section-title"><div class="shell">
+      <div class="section-heading section-heading--horizontal"><div><p class="kicker">Under the hood, made simple</p><h2 id="demo-section-title">A smarter way to spend your limits.</h2></div><p>Which account should get your next session? It's not always the one with the most left. Explore an example.</p></div>
+      <RouterDemo />
+    </div></section>
+
+    <section class="shell landing-affinity" aria-labelledby="affinity-title">
+      <div class="landing-affinity__copy"><p class="kicker">Built for prompt caching</p><h2 id="affinity-title">Smart routing.<br /><span>Sticky sessions.</span></h2><p>Switching accounts on every request would wreck your prompt cache. So Noria doesn't.</p><p>Once a conversation starts on an account, it stays there until that account actually hits an applicable usage limit. Only then does Noria look for another eligible account. The new cache warms up naturally as you continue.</p><a class="landing-inline-link" href="/docs/architecture">Understand session affinity <span aria-hidden="true">↗</span></a></div>
+      <div class="affinity-diagram" aria-label="Illustration of session staying with account A and switching to B only on exhaustion">
+        <div class="affinity-diagram__label">Conversation / 07</div>
+        <div class="affinity-diagram__row"><span class="affinity-diagram__tag">Account A</span><div class="affinity-diagram__requests"><i></i><i></i><i></i><i></i><i></i></div><span class="affinity-diagram__status">Cache stays warm</span></div>
+        <div class="affinity-diagram__event"><span>Quota reached on A</span><span>↓</span></div>
+        <div class="affinity-diagram__row affinity-diagram__row--second"><span class="affinity-diagram__tag">Account B</span><div class="affinity-diagram__requests"><i></i><i></i><i></i></div><span class="affinity-diagram__status">Continue on B</span></div>
+        <p>No round-robin. No switching back just because A resets.</p>
+      </div>
     </section>
 
-    <section class="shell noria-start" aria-labelledby="start-title">
-      <p class="noria-eyebrow">Ready when you are.</p>
-      <h2 id="start-title">Give your next session<br /><em>room to keep going.</em></h2>
-      <div class="noria-actions"><a class="button button--solid" href="/docs/quickstart">Follow the quickstart <span aria-hidden="true">↗</span></a><a class="noria-text-link" href="https://github.com/amxv/noria/releases">Download a binary <span aria-hidden="true">→</span></a></div>
-      <p>Add accounts. Configure your clients once. Keep working.</p>
-      <p class="noria-release-note" style="margin-inline:auto">When every matching account is exhausted, Noria reports unavailability. It cannot create extra quota or splice a partially delivered stream. Live multi-account use has not yet been validated. <a href="/docs/troubleshooting#verified-locally">Read the release limits →</a></p>
+    <section class="landing-control-band"><div class="shell landing-control-band__inner">
+      <div class="landing-control-band__copy"><p class="kicker">Runs in the background</p><h2>Set it up.<br />Stay in your editor.</h2><p>After setup, launch Codex or Claude Code the way you always do—terminal, supported desktop apps, or your editor. On macOS, the native menu bar shows each account's remaining quota and next reset. All routing happens on your computer.</p><a class="landing-inline-link" href="/docs/quickstart">Set up Noria <span aria-hidden="true">↗</span></a></div>
+      <div class="landing-control-panel" aria-label="Illustrative Noria menu controls"><div class="landing-control-panel__heading"><span class="panel-brand">N</span><strong>Noria</strong><span class="panel-running"><i></i> Running</span></div><div class="landing-control-panel__subhead">ACCOUNT POOL</div><div class="landing-control-panel__account"><span>alice@example.com</span><strong>Weekly 72%</strong></div><div class="landing-control-panel__meter"><i style="width:72%"></i></div><div class="landing-control-panel__account"><span>work@example.com</span><strong>Weekly 15%</strong></div><div class="landing-control-panel__meter"><i style="width:15%"></i></div><div class="landing-control-panel__account"><span>extra@example.com</span><strong>Weekly 58%</strong></div><div class="landing-control-panel__meter"><i style="width:58%"></i></div><div class="landing-control-panel__footer"><span>＋ Add account</span><span>↻ Refresh usage</span></div><p>Example menu · not a screenshot or live quota data</p></div>
+    </div></section>
+
+    <section class="shell landing-install" aria-labelledby="install-title">
+      <p class="kicker">Get started</p><h2 id="install-title">Your accounts are ready.<br /><span>Make them work together.</span></h2><p>Install Noria, add your accounts, and connect your clients once. That's it.</p>
+      <div class="landing-install__grid"><div><span>macOS / Linux</span><pre><code>curl -fsSL https://noria.ashray.xyz/install.sh | sh</code></pre></div><div><span>Windows / PowerShell</span><pre><code>irm https://noria.ashray.xyz/install.ps1 | iex</code></pre></div></div>
+      <div class="landing-actions"><a class="landing-button landing-button--primary" href="/docs/quickstart">Read the quickstart <span aria-hidden="true">↗</span></a><a class="landing-button landing-button--secondary" href="https://github.com/amxv/noria">View on GitHub <span aria-hidden="true">→</span></a></div>
+      <p class="landing-install__foot">Noria works with accounts you authorize. It can't create extra allowance, and when every eligible account is exhausted you still have to wait for a reset.</p>
     </section>
   </div>
 </BaseLayout>

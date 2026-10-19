@@ -29,6 +29,18 @@ if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--validate-s
         exit(0)
     } catch { fputs("Invalid CLI status schema: \(error.localizedDescription)\n", stderr); exit(1) }
 }
+if CommandLine.arguments.count == 3 && CommandLine.arguments[1] == "--validate-compact-status-json" {
+    do {
+        let state = try decodeJSON(Dashboard.self, from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[2])))
+        guard state.accounts.count == 1, visibleProviders(in: state.accounts) == ["codex"],
+              let only = visibleQuotaWindows(for: state.accounts[0]).first,
+              visibleQuotaWindows(for: state.accounts[0]).count == 1,
+              only.title == "Week", windowText(only.window, title: only.title).contains("98% left")
+        else { exit(1) }
+        print("Native menu compact view: absent provider and unreported five-hour limit are hidden")
+        exit(0)
+    } catch { fputs("Invalid compact status fixture: \(error.localizedDescription)\n", stderr); exit(1) }
+}
 let home = selectedHome()
 do { try FileManager.default.createDirectory(atPath: home, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]) }
 catch { fputs("Cannot open the Noria private home.\n", stderr); exit(1) }

@@ -1,39 +1,33 @@
 export const siteConfig = {
-  name: "Noria",
-  strapline: "Keep your agents in flow",
+  name: 'Noria',
+  strapline: 'Smart account routing',
   description:
-    "Set up once and use Codex or Claude Code normally. Noria handles account routing, with native macOS menu controls and background service support.",
-  repoUrl: "https://github.com/amxv/noria",
-  logoHref: "/favicon.svg",
-  accentColor: "#8e3d25",
-  accentColorDark: "#e7a18a",
+    'Use more of your Codex and Claude Code limits without constantly switching accounts. A smart proxy that runs locally.',
+  repoUrl: 'https://github.com/amxv/noria',
+  logoHref: '/favicon.svg',
+  accentColor: '#2858e6',
+  accentColorDark: '#94b5ff',
   footerSections: [
     {
-      title: "On your machine",
-      text:
-        "A local Go gateway. Your native clients, your authorized accounts, your requested model. No cloud service in the routing path."
+      title: 'Built for your workflow',
+      text: 'A smart local proxy for the coding accounts you already use. No cloud routing control plane.'
     },
     {
-      title: "Built in the open",
-      text:
-        "v0.3.1 · Apache-2.0. Native installers for macOS, Linux, and Windows. No paid fallback or model swaps."
+      title: 'Open source',
+      text: 'v0.3.2 · Apache-2.0 · macOS, Linux, and Windows.'
     },
     {
-      title: "Source & releases",
-      linkHref: "https://github.com/amxv/noria",
-      linkLabel: "github.com/amxv/noria"
+      title: 'Code & releases',
+      linkHref: 'https://github.com/amxv/noria',
+      linkLabel: 'github.com/amxv/noria'
     }
   ]
 } as const;
 
-export const docCategories = [
-  "Start",
-  "Routing",
-  "Reference"
-] as const;
+export const docCategories = ['Get started', 'How it works', 'Reference'] as const;
 
 export const primaryNav = [
-  { href: "/docs", label: "Docs" },
-  { href: "/docs/scheduling", label: "How it routes" },
-  { href: siteConfig.repoUrl, label: "GitHub", external: true }
+  { href: '/docs', label: 'Docs' },
+  { href: '/docs/architecture', label: 'How it works' },
+  { href: siteConfig.repoUrl, label: 'GitHub', external: true }
 ];

@@ -1,50 +1,69 @@
 ---
-title: "Fix a setup problem"
-description: "Practical checks for routing, sign-in, stale usage, and service startup."
-order: 8
-category: "Start"
-summary: "Practical checks for routing, sign-in, stale usage, and service startup."
+title: Troubleshooting
+description: Fix client routing, sign-ins, missing quota information, and background-service issues.
+order: 9
+category: Reference
 ---
 
-## Start with Health Check
-
-Choose **N → Health Check**, or:
+## Start with a health check
 
 ```sh
 noria health
 noria status
 ```
 
-This checks local reachability, managed routing configuration, and native executables. It sends no model prompt and does not prove live subscription acceptance.
+`health` checks the local service, configured clients, and native executables. It doesn't send a model prompt.
 
-## My client is not using Noria
+## Codex or Claude Code isn't using Noria
 
-Inspect `noria integrations --json` and configure the root actually read by that client. Reopen it after setup. A project, editor, managed policy, or desktop host may override the provider. See [client setup](/docs/native-clients) for exact values and surface differences.
+Run `noria integrations --json` to see which configuration folders are connected. Make sure your client is using one of those folders. On macOS, choose **N → Configure → Configure Codex** or **Configure Claude Code** to set them up.
 
-## Stop did not change an already-running client
+If you use a custom `CODEX_HOME` or `CLAUDE_CONFIG_DIR`, configure that path explicitly with `noria integrate ... --client-home`. Then **restart the client** so it picks up the settings.
 
-The process may cache its settings; reopen it. Stop restores registered file values, not a running process's memory. Manually pasted snippets and Claude Desktop's separate third-party form are not registered for restoration.
+Editors and desktop apps sometimes have their own base-URL or account settings. See [Connect your clients](/docs/native-clients).
 
-Direct use relies on the normal client's own saved login. If that account is also exhausted, direct use still has its own limit. Noria does not overwrite it with the last-used pool account.
+## Configure Codex failed
 
-## Sign-in did not complete
+Upgrade to **Noria 0.3.1 or later** if you see a panic involving `reflect.Value.SetLen` or TOML arrays such as `[[skills.config]]`.
 
-Choose **Sign In Again…** and select the intended account in the browser. Closing the browser, cancelling, or timing out leaves a pending new account disabled. `noria account relogin <email-or-id>` uses the same flow. Do not copy ordinary auth files into another pool profile as a shortcut.
+```sh
+noria upgrade
+noria integrate codex
+noria integrate codex --yes
+```
 
-## Usage is unknown or stale
+Preview the changes first. Noria keeps unrelated Codex settings in place and restores your original direct `model_provider` line when you disable routing.
 
-Run `noria quota refresh`, or open the menu and use Refresh Usage. Cached values appear immediately while new values load. Unknown is not unlimited capacity and does not clear a confirmed rejection.
+## A sign-in didn't finish
 
-Check native client versions and `noria doctor`. Claude needs no SDK/Node bridge installation. Provider control interfaces can change with native releases.
+Choose **Sign In Again…** from the account submenu, or run:
 
-## Startup or updates need attention
+```sh
+noria account list
+noria account relogin you@example.com
+```
 
-Check for a port conflict on `127.0.0.1:43119`, the private `logs/service.log`, and `noria health`. Linux user systemd may be unavailable: manual Start can use the supervisor, while login autostart needs a user service manager.
+Select the intended account in your browser. Cancelled or incomplete sign-ins aren't eligible for routing.
 
-Updates wait for active requests to finish. Idle client connections may reconnect during a safe service update. Checksums and app signatures are verified before replacement; never disable OS security or strip quarantine to force an install.
+## Usage is missing or looks stale
 
-## Verified locally
+```sh
+noria quota refresh
+noria status
+```
 
-Installed Codex 0.162.1 and Claude Code 2.1.299 passed local forced-failover and conversation-resume tests. Both also passed config-only launches using persistent settings and the Noria credential helper, without wrapper/provider environment overrides. Background Start/Stop was exercised with isolated client settings and no accounts. These are not live subscription-account tests or certification of every desktop host.
+Each account has its own independent five-hour and weekly windows. If the provider doesn't return usage information, Noria labels it unknown rather than assuming there's free allowance. A real upstream quota rejection takes priority over old readings.
 
-Report Noria/native-client versions and a redacted error, not auth files, helper output, or raw conversations.
+## Stop didn't switch my client back
+
+An already-open client may have cached its settings. Close and reopen it. `noria stop` restores only client settings that Noria installed; applications manually configured to use its gateway need to be changed manually.
+
+## The service isn't running
+
+Run `noria start`, then `noria health`. If startup fails, another process may be using the gateway address (`127.0.0.1:43119`). Local diagnostic messages are under Noria's private `logs/service.log` directory.
+
+## No accounts are available
+
+Noria can't route around an exhausted pool. It waits for an applicable reset or a usable account to be added. A weekly limit can block an account even if its five-hour window still has capacity.
+
+If you need help, share the Noria and native-client versions plus a redacted error. **Never share account credentials, token-helper output, or conversation contents.**

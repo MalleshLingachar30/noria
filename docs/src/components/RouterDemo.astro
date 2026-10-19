@@ -1,0 +1,81 @@
+<section class="router-demo" data-router-demo data-step="new" aria-labelledby="router-demo-title">
+  <div class="router-demo__top">
+    <div>
+      <span class="kicker">Routing, in action</span>
+      <h3 id="router-demo-title">Watch Noria make the call.</h3>
+    </div>
+    <div class="router-demo__steps" role="group" aria-label="Explore routing scenarios">
+      <button class="router-demo__step" type="button" data-phase="new" aria-pressed="true">01 / New session</button>
+      <button class="router-demo__step" type="button" data-phase="ongoing" aria-pressed="false">02 / Keep working</button>
+      <button class="router-demo__step" type="button" data-phase="limit" aria-pressed="false">03 / Limit reached</button>
+    </div>
+  </div>
+  <div class="router-demo__canvas">
+    <div class="router-demo__origin">
+      <span class="router-demo__card-label">Your normal client</span>
+      <div class="router-demo__terminal-mark" aria-hidden="true"><span>›</span><span class="cursor">_</span></div>
+      <strong>Codex session</strong>
+      <span class="router-demo__subtext">One conversation · same model</span>
+      <div class="router-demo__requests" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+    <div class="router-demo__bridge" aria-label="Noria local smart proxy">
+      <span class="router-demo__bridge-line" aria-hidden="true"></span>
+      <div class="router-demo__node"><span class="router-demo__node-icon" aria-hidden="true">N</span><strong>Noria</strong><small>localhost</small></div>
+      <span class="router-demo__bridge-line" aria-hidden="true"></span>
+    </div>
+    <div class="router-demo__accounts" aria-label="Illustrative Codex account pool">
+      <div class="router-demo__account" data-account="a">
+        <div class="router-demo__account-head"><span class="router-demo__dot"></span><strong>Account A</strong><span class="router-demo__indicator" data-indicator-a>Selected</span></div>
+        <div class="router-demo__meter"><span>5-hour</span><span>63% left</span></div>
+        <div class="router-demo__bar"><span style="width:63%"></span></div>
+        <div class="router-demo__meter"><span>Weekly</span><span>5% left</span></div>
+        <div class="router-demo__bar"><span style="width:5%"></span></div>
+        <p>Weekly reset in 18 minutes</p>
+      </div>
+      <div class="router-demo__account" data-account="b">
+        <div class="router-demo__account-head"><span class="router-demo__dot"></span><strong>Account B</strong><span class="router-demo__indicator" data-indicator-b>Available</span></div>
+        <div class="router-demo__meter"><span>5-hour</span><span>81% left</span></div>
+        <div class="router-demo__bar"><span style="width:81%"></span></div>
+        <div class="router-demo__meter"><span>Weekly</span><span>80% left</span></div>
+        <div class="router-demo__bar"><span style="width:80%"></span></div>
+        <p>Weekly reset in 6 days</p>
+      </div>
+      <div class="router-demo__account router-demo__account--blocked" data-account="c">
+        <div class="router-demo__account-head"><span class="router-demo__dot"></span><strong>Account C</strong><span class="router-demo__indicator">Exhausted</span></div>
+        <div class="router-demo__meter"><span>5-hour</span><span>90% left</span></div>
+        <div class="router-demo__bar"><span style="width:90%"></span></div>
+        <div class="router-demo__meter"><span>Weekly</span><span>0% left</span></div>
+        <div class="router-demo__bar"><span style="width:0%"></span></div>
+        <p>Weekly limit blocks new work</p>
+      </div>
+    </div>
+  </div>
+  <div class="router-demo__result">
+    <div class="router-demo__result-symbol" aria-hidden="true">↗</div>
+    <div><span class="kicker">Why this route?</span><p data-router-explanation aria-live="polite">Account A has little weekly quota left, but it resets soon. For a suitable new session, Noria may use that allowance before it expires instead of consuming B’s longer-lived quota.</p></div>
+  </div>
+  <p class="router-demo__disclaimer">Interactive illustration. Quotas and decisions are examples, not live account data.</p>
+</section>
+
+<script>
+  const demo = document.querySelector<HTMLElement>('[data-router-demo]');
+  if (demo) {
+    const explanations: Record<string, string> = {
+      new: 'Account A has little weekly quota left, but it resets soon. For a suitable new session, Noria may use that allowance before it expires instead of consuming B’s longer-lived quota.',
+      ongoing: 'This conversation has already started on A. Noria keeps routing requests there to preserve its account-level prompt cache, even if B looks more attractive.',
+      limit: 'A has reached an applicable limit. Noria retries the pending request on B when it is safe, then keeps the conversation on B. Its cache warms up normally.'
+    };
+    const choices = demo.querySelectorAll<HTMLButtonElement>('[data-phase]');
+    choices.forEach((button) => button.addEventListener('click', () => {
+      const phase = button.dataset.phase ?? 'new';
+      demo.dataset.step = phase;
+      choices.forEach((choice) => choice.setAttribute('aria-pressed', String(choice === button)));
+      const explanation = demo.querySelector<HTMLElement>('[data-router-explanation]');
+      if (explanation) explanation.textContent = explanations[phase];
+      const a = demo.querySelector<HTMLElement>('[data-indicator-a]');
+      const b = demo.querySelector<HTMLElement>('[data-indicator-b]');
+      if (a) a.textContent = phase === 'limit' ? 'At limit' : phase === 'ongoing' ? 'Pinned session' : 'Selected';
+      if (b) b.textContent = phase === 'limit' ? 'Failover target' : 'Available';
+    }));
+  }
+</script>

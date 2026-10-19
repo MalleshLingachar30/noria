@@ -44,6 +44,28 @@ struct Dashboard: Decodable {
     let client_roots: [ClientRoot]
     let integrations: [ClientIntegration]
 }
+
+// Only draw quota windows that the provider actually reports with a usable
+// percentage. Codex Pro accounts, for example, may have no five-hour window.
+// An absent window must not become a fabricated "Usage unavailable" row.
+func visibleQuotaWindows(for account: AccountStatus) -> [(title: String, window: QuotaWindow)] {
+    let windows = account.snapshot?.windows ?? []
+    return [(Int64(18_000_000_000_000), "5h"), (Int64(604_800_000_000_000), "Week")].compactMap { duration, title in
+        guard let window = windows.first(where: {
+            $0.duration == duration && ($0.model ?? "").isEmpty &&
+            $0.used_percent.map { $0.isFinite && $0 >= 0 && $0 <= 100 } == true
+        }) else { return nil }
+        return (title: title, window: window)
+    }
+}
+
+// Avoid empty provider headings. The main menu should represent the actual
+// pool instead of advertising providers the user hasn't added yet.
+func visibleProviders(in accounts: [AccountStatus]) -> [String] {
+    ["codex", "claude"].filter { provider in
+        accounts.contains { $0.provider == provider }
+    }
+}
 struct UpdateResult: Decodable {
     let current: String
     let latest: String

@@ -60,6 +60,7 @@ docs-dev:
 
 docs-check:
 	@cd docs && bun run test:deployment
+	@cd docs && bun run test:design
 	@cd docs && bun run check
 
 docs-build:

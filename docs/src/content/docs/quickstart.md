@@ -1,75 +1,65 @@
 ---
-title: "Set up once, code normally"
-description: "Install Noria, add accounts, and connect your everyday coding clients."
+title: Get started
+description: Install Noria, add your accounts, and route your usual coding tools through it.
 order: 1
-category: "Start"
-summary: "Install Noria, add accounts, and connect your everyday coding clients."
+category: Get started
 ---
 
-Noria runs quietly on your computer. After one-time setup, launch Codex or Claude Code as usual. Sessions stay on their account while it can serve, and Noria chooses another account when a limit requires it.
+You only need to set up Noria once. After that, keep launching Codex and Claude Code as usual—Noria takes care of choosing accounts and switching when limits are reached.
 
-## 1. Install
+## 1. Install Noria
 
-**On macOS**, install the native menu bar and CLI together:
-
-```sh
-curl -fsSL https://noria.ashray.xyz/install.sh | sh
-```
-
-An **N** appears in your menu bar. The app lives beside the CLI under `~/.local/bin`; no administrator privileges are needed. The installer verifies the release checksum. Use this CLI installation route rather than dragging a browser-downloaded bundle into Applications. [Installation details](/docs/installation-and-upgrades) explain the macOS distinction.
-
-**On Linux**, the same native installer sets up the Go CLI:
+**macOS and Linux**
 
 ```sh
 curl -fsSL https://noria.ashray.xyz/install.sh | sh
 ```
 
-**On Windows**, run this from PowerShell:
+**Windows (PowerShell)**
 
 ```powershell
 irm https://noria.ashray.xyz/install.ps1 | iex
 ```
 
-All three platforms download checksum-verified binaries from [GitHub Releases](https://github.com/amxv/noria/releases). There is no Node or npm prerequisite for Noria. Install the native `codex` and/or `claude` executable for the providers you use.
+On macOS, you can manage Noria from the **N** icon in your menu bar. On every platform, you can use the `noria` command.
 
 ## 2. Add your accounts
 
-Click **N → Add Codex Account…** or **Add Claude Account…**. Finish the native provider sign-in in your browser, choosing the intended account. Noria saves the isolated pool login, discovers its email address, and refreshes usage.
-
-CLI equivalents:
+On macOS, select **N → Configure → Add Codex Account…** or **Add Claude Account…**. Otherwise, use:
 
 ```sh
 noria account add codex
 noria account add claude
 ```
 
-Repeat Add for additional accounts. **Email addresses are the default names; aliases are optional.** Automatic failover needs another usable account of the same provider and requested model.
+Each command opens the provider's sign-in flow in your browser. Repeat it for every account you want in the pool—including multiple accounts for the same provider.
 
-## 3. Connect your normal clients
+Noria shows each account's email address and remaining allowance. You can [rename, disable, or relogin to any account](/docs/accounts) later.
 
-Choose **N → Configure Clients…**, select the client folder, and approve the change. Noria backs up the routing fields and preserves your native login, conversations, model settings, and unrelated preferences.
+## 3. Connect your clients
 
-From the CLI:
+Start Noria, then configure the tools you already use:
 
 ```sh
 noria start
-noria integrate codex       # preview the target file and changes
 noria integrate codex --yes
 noria integrate claude --yes
 ```
 
-Codex uses `$CODEX_HOME/config.toml`, defaulting to `~/.codex/config.toml`. Claude Code uses `$CLAUDE_CONFIG_DIR/settings.json`, defaulting to `~/.claude/settings.json`. Clients reading those roots receive persistent routing, not merely the shell that ran setup.
+These commands connect the **default Codex and Claude Code configuration folders**. They don't replace your saved conversations or normal provider login.
 
-Use the custom folder picker or `--client-home` for separate app roots:
+If your tools use another config directory, choose it in **N → Configure → Choose a Custom Client Folder…** or pass `--client-home`:
 
 ```sh
 noria integrate codex --client-home "$HOME/.gg/codex" --yes
 noria integrate claude --client-home "$HOME/.gg/claude" --yes
 ```
 
-**Reopen clients that were already running** so they reload the settings. [Client setup](/docs/native-clients) has exact manual TOML/JSON examples and desktop/editor differences.
+See [Connect your clients](/docs/native-clients) for desktop apps, editors, and other configuration roots.
 
-## 4. Work normally
+## 4. Keep coding normally
+
+Restart Codex or Claude Code if it was already open. Then use it the way you always do:
 
 ```sh
 codex
@@ -77,24 +67,10 @@ codex
 claude
 ```
 
-No wrapper is required. Closing the terminal or quitting the menu bar does not stop the background service.
+There is no special launch command. Noria runs in the background, chooses an account for each new session, and keeps that conversation on its chosen account until a limit makes switching necessary.
 
-For automatic startup, enable **Launch Menu Bar at Login** and **Start Noria at Login**. They are independent preferences:
+On macOS, open the **N** menu any time to see usage and reset times, refresh the pool, or stop routing.
 
-```sh
-noria preferences menubar-at-login on   # macOS menu bar
-noria preferences start-at-login on    # background service
-```
+**Want it to start automatically?** Turn on **Start Noria at Login** in the menu, or run `noria preferences start-at-login on`.
 
-## Everyday controls
-
-Open **N** to inspect five-hour and weekly quota remaining and reset times for every account. Opening the menu refreshes usage asynchronously while showing the last snapshot immediately. Select an account to enable/disable it, sign in again, or set an alias. **Health Check** tests local setup without a model prompt.
-
-```sh
-noria status
-noria stop
-noria start
-noria upgrade
-```
-
-**Stop restores direct routing using each managed client's original saved login.** It does not copy the last-used pool account into that client. Reopen already-running clients after switching routes. If every matching account is exhausted, Noria reports the shortage rather than buying capacity or changing models.
+Next: [Learn how routing works](/docs/architecture), or [manage Noria day to day](/docs/everyday-use).

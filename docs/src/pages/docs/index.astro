@@ -1,10 +1,10 @@
 ---
-import { getCollection } from "astro:content";
-import BaseLayout from "zuedocs/layouts/BaseLayout.astro";
-import { docCategories, primaryNav, siteConfig } from "../../data/docs";
-import "../../styles/global.css";
+import { getCollection } from 'astro:content';
+import BaseLayout from 'zuedocs/layouts/BaseLayout.astro';
+import { docCategories, primaryNav, siteConfig } from '../../data/docs';
+import '../../styles/global.css';
 
-const entries = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
+const entries = (await getCollection('docs')).sort((a, b) => a.data.order - b.data.order);
 const grouped = docCategories.map((category) => ({
   category,
   entries: entries.filter((entry) => entry.data.category === category)
@@ -12,21 +12,22 @@ const grouped = docCategories.map((category) => ({
 ---
 
 <BaseLayout
-  title={`${siteConfig.name} Docs`}
-  description="Install Noria, sign in to isolated accounts, connect your native clients, and understand session affinity and quota scheduling."
+  title="Noria Docs — Get the most from your coding accounts"
+  description="Get Noria set up once, keep using Codex and Claude Code normally, and understand how the local smart proxy routes work across accounts."
   siteConfig={siteConfig}
   primaryNav={primaryNav}
 >
   <a class="skip-link" href="#content">Skip to content</a>
   <section id="content" class="shell docs-index-hero">
     <p class="section-label">Documentation</p>
-    <h1>A clear route from sign-in to a running session.</h1>
+    <h1>Set up once.<br />Forget the switching.</h1>
     <p>
-      Install the local gateway, add your accounts, and keep using Codex or Claude Code.
-      Learn when Noria places a session, when it switches accounts, and where the limits are.
+      Start using multiple Codex and Claude Code accounts together in a few minutes.
+      Install Noria, connect your clients, and let smart routing handle the rest.
     </p>
+    <a class="landing-button landing-button--primary" href="/docs/quickstart">Start the quickstart <span aria-hidden="true">↗</span></a>
   </section>
-  <section class="shell docs-index">
+  <section class="shell docs-index" aria-label="Documentation topics">
     {grouped.map((group) => (
       <section class="docs-index__group">
         <div class="docs-index__group-head">
@@ -37,7 +38,7 @@ const grouped = docCategories.map((category) => ({
             <a class="docs-index__card" href={`/docs/${entry.id}`}>
               <h2>{entry.data.title}</h2>
               <p>{entry.data.description}</p>
-              <span>Open guide</span>
+              <span>Read guide →</span>
             </a>
           ))}
         </div>

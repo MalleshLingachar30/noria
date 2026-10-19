@@ -1,25 +1,35 @@
 ---
-title: "Security and limits"
-description: "Separate credentials, local access controls, and compatibility boundaries."
-order: 7
-category: "Reference"
-summary: "Separate credentials, local access controls, and compatibility boundaries."
+title: Security and limitations
+description: What stays local, what goes upstream, and what routing cannot guarantee.
+order: 6
+category: How it works
 ---
 
-Noria is a local router, not local inference. Model traffic still goes to the selected provider.
+## What stays on your machine?
 
-Pool sign-ins are isolated. Client integration installs a local credential helper and backs up routing values; it does not copy pool credentials into your normal client login. Stop restores managed direct routing. Profiles with manually pasted settings and Claude Desktop's separate inference form are not automatically restored.
+Noria's account pool, routing decisions, usage snapshots, and session bindings live locally. Each account uses its own sign-in profile. The gateway listens only on your computer's loopback interface and requires a local credential.
 
-The loopback gateway checks its random credential, Host, and Origin. This does not protect against malicious software already running as your operating-system user. Keep the private home secure and do not expose the gateway through a public tunnel.
+Your model requests **still go to the selected provider** (OpenAI or Anthropic). Noria is a proxy, not an offline model. Your usage remains subject to the provider's terms and account limits.
 
-Noria does not create quota, purchase credits, redeem resets, switch models/providers, move caches, or splice already-delivered output. Updates and health checks do not make model requests.
+Noria doesn't change your normal client login to add accounts to the pool. If you stop Noria, it restores client settings that it installed so you can use the original direct-provider account again. Apps configured manually must be switched back manually.
 
-Remove unregisters an account but retains native profile files for recovery. A complete provider logout may also involve the platform's credential store. Never delete unrelated client profiles or Keychain entries.
+## What Noria can—and cannot—do
 
-## Distribution
+- **Can:** Choose an account for a new conversation based on usable capacity, reset times, and active work.
+- **Can:** Keep a conversation pinned to its account so prompt caching is preserved as long as possible.
+- **Can:** Retry an unfulfilled request on another eligible account when a provider limit blocks it.
+- **Cannot:** Create additional usage allowance, purchase extra credits, or make an exhausted pool available.
+- **Cannot:** Switch between Codex and Claude providers or substitute a different model to hide exhaustion.
+- **Cannot:** Move prompt caches between accounts, replay completed tool actions, or transparently stitch together partially streamed output.
 
-The macOS app is ad-hoc signed and installed through a checksum-verified CLI download/extract flow, matching Zodex. No installer disables Gatekeeper or removes quarantine metadata. Browser-downloaded bundles and managed-device policies can behave differently. This is not a Developer ID notarization claim.
+## Supported clients
 
-## Compatibility
+Codex and Claude Code use native protocols, which can evolve over time. Locally tested versions have passed ordinary session and failover fixtures, but live subscription behavior and individual desktop hosts may vary.
 
-Native quota/auth interfaces can change. Tests use isolated profiles and controlled upstreams, not live subscription allowances. Actual cache hits and authenticated backend acceptance still require real authorized use. Existing clients may cache their routing and need reopening after changes. Provider use remains subject to the applicable account terms.
+Some applications have their own provider configuration or run remotely. These need a reachable local Noria endpoint and may not be configurable with the same settings as a local terminal client.
+
+## Credentials and access
+
+Account credentials are separate from your existing client profiles. Keep your Noria home private and don't publish credential-helper output, expose its local gateway publicly, or share login files. Software already running as your OS user may be able to access local processes and files.
+
+An account removed from Noria is unregistered from routing, but its local sign-in files may remain for recovery. Removing it is not the same as logging out of the provider everywhere.

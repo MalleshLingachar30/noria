@@ -50,46 +50,63 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(label(running ? "Noria is Running" : "Noria is Stopped"))
         menu.addItem(item(running ? "Stop Noria" : "Start Noria", enabled: !mutationInFlight, symbol: running ? "stop.fill" : "play.fill") { [weak self] in self?.changeService(running ? "stop" : "start") })
         if mutationInFlight { menu.addItem(label("Applying change…")) }
-        menu.addItem(.separator())
-        for provider in ["codex", "claude"] {
+        let accounts = dashboard?.accounts ?? []
+        if !accounts.isEmpty { menu.addItem(.separator()) }
+        for provider in visibleProviders(in: accounts) {
+            let providerAccounts = accounts.filter { $0.provider == provider }
             menu.addItem(label(provider == "codex" ? "CODEX ACCOUNTS" : "CLAUDE ACCOUNTS"))
-            let accounts = dashboard?.accounts.filter { $0.provider == provider } ?? []
-            if accounts.isEmpty { menu.addItem(label("No accounts added")) }
-            for account in accounts { addAccount(account) }
+            for account in providerAccounts { addAccount(account) }
             menu.addItem(.separator())
-        }
-        menu.addItem(item("Add Codex Account…", enabled: loginProcess == nil, symbol: "person.badge.plus") { [weak self] in self?.authenticate(provider: "codex", account: nil) })
-        menu.addItem(item("Add Claude Account…", enabled: loginProcess == nil, symbol: "person.badge.plus") { [weak self] in self?.authenticate(provider: "claude", account: nil) })
-        if loginProcess != nil {
-            menu.addItem(label("Finish sign-in in your browser…"))
-            menu.addItem(item("Cancel Sign-In") { [weak self] in self?.loginProcess?.terminate() })
         }
         menu.addItem(item(refreshing ? "Refreshing Usage…" : "Refresh Usage", enabled: !refreshing, symbol: "arrow.clockwise") { [weak self] in self?.refreshUsage() })
         if let refreshMessage { menu.addItem(label(refreshMessage)) }
         menu.addItem(.separator())
-        let clientMenu = NSMenu(); clientMenu.autoenablesItems = false
-        for root in dashboard?.client_roots ?? [] {
-            let path = (root.root as NSString).abbreviatingWithTildeInPath
-            clientMenu.addItem(item("\(root.provider == "codex" ? "Codex" : "Claude Code"): \(path)…") { [weak self] in self?.configure(root: root, remove: false) })
+        let configureMenu = NSMenu(); configureMenu.autoenablesItems = false
+        for provider in ["codex", "claude"] {
+            let roots = (dashboard?.client_roots ?? []).filter { $0.provider == provider }
+            let name = provider == "codex" ? "Codex" : "Claude Code"
+            if roots.count == 1, let root = roots.first {
+                let action = item("Configure \(name)") { [weak self] in self?.configure(root: root, remove: false) }
+                action.toolTip = (root.root as NSString).abbreviatingWithTildeInPath
+                configureMenu.addItem(action)
+            } else if !roots.isEmpty {
+                let rootMenu = NSMenu(); rootMenu.autoenablesItems = false
+                for root in roots {
+                    let path = (root.root as NSString).abbreviatingWithTildeInPath
+                    rootMenu.addItem(item(path) { [weak self] in self?.configure(root: root, remove: false) })
+                }
+                let providerItem = item("Configure \(name)")
+                providerItem.submenu = rootMenu
+                configureMenu.addItem(providerItem)
+            }
         }
-        clientMenu.addItem(item("Claude Desktop Setup…") { NSWorkspace.shared.open(URL(string: "https://noria.ashray.xyz/docs/native-clients/#claude-desktop-has-separate-configuration")!) })
-        clientMenu.addItem(.separator())
-        clientMenu.addItem(item("Choose a Custom Client Folder…") { [weak self] in self?.customIntegration() })
+        configureMenu.addItem(item("Claude Desktop Setup…") { NSWorkspace.shared.open(URL(string: "https://noria.ashray.xyz/docs/native-clients/#what-about-claude-desktop")!) })
+        configureMenu.addItem(item("Choose a Custom Client Folder…") { [weak self] in self?.customIntegration() })
         for entry in dashboard?.integrations ?? [] {
             let path = (entry.path as NSString).abbreviatingWithTildeInPath
-            clientMenu.addItem(item("Restore Direct Settings: \(path)…") { [weak self] in self?.configure(root: ClientRoot(provider: entry.provider, root: (entry.path as NSString).deletingLastPathComponent), remove: true) })
+            configureMenu.addItem(item("Restore Direct Settings: \(path)…") { [weak self] in self?.configure(root: ClientRoot(provider: entry.provider, root: (entry.path as NSString).deletingLastPathComponent), remove: true) })
         }
-        let integrations = item("Configure Clients…", symbol: "gearshape"); integrations.submenu = clientMenu; menu.addItem(integrations)
-        menu.addItem(item("Health Check", symbol: "heart.text.square") { [weak self] in self?.healthCheck() })
-        menu.addItem(.separator())
+        configureMenu.addItem(.separator())
+        configureMenu.addItem(item("Add Codex Account…", enabled: loginProcess == nil, symbol: "person.badge.plus") { [weak self] in self?.authenticate(provider: "codex", account: nil) })
+        configureMenu.addItem(item("Add Claude Account…", enabled: loginProcess == nil, symbol: "person.badge.plus") { [weak self] in self?.authenticate(provider: "claude", account: nil) })
+        if loginProcess != nil {
+            configureMenu.addItem(label("Finish sign-in in your browser…"))
+            configureMenu.addItem(item("Cancel Sign-In") { [weak self] in self?.loginProcess?.terminate() })
+        }
+        configureMenu.addItem(item("Health Check", symbol: "heart.text.square") { [weak self] in self?.healthCheck() })
+        configureMenu.addItem(.separator())
         let prefs = dashboard?.preferences
-        menu.addItem(item("Launch Menu Bar at Login", enabled: !mutationInFlight, check: prefs?.menubar_at_login ?? false) { [weak self] in self?.setPreference("menubar-at-login", enabled: !(prefs?.menubar_at_login ?? false)) })
-        menu.addItem(item("Start Noria at Login", enabled: !mutationInFlight, check: prefs?.start_at_login ?? false) { [weak self] in self?.setPreference("start-at-login", enabled: !(prefs?.start_at_login ?? false)) })
-        menu.addItem(item("Automatically Update", enabled: !mutationInFlight, check: prefs?.auto_update ?? false) { [weak self] in self?.setPreference("auto-update", enabled: !(prefs?.auto_update ?? false)) })
-        menu.addItem(item(updateInFlight ? "Checking for Updates…" : "Check for Updates…", enabled: !updateInFlight) { [weak self] in self?.checkUpdate(automatic: false) })
+        configureMenu.addItem(item("Launch Menu Bar at Login", enabled: !mutationInFlight, check: prefs?.menubar_at_login ?? false) { [weak self] in self?.setPreference("menubar-at-login", enabled: !(prefs?.menubar_at_login ?? false)) })
+        configureMenu.addItem(item("Start Noria at Login", enabled: !mutationInFlight, check: prefs?.start_at_login ?? false) { [weak self] in self?.setPreference("start-at-login", enabled: !(prefs?.start_at_login ?? false)) })
+        configureMenu.addItem(item("Automatically Update", enabled: !mutationInFlight, check: prefs?.auto_update ?? false) { [weak self] in self?.setPreference("auto-update", enabled: !(prefs?.auto_update ?? false)) })
+        configureMenu.addItem(item(updateInFlight ? "Checking for Updates…" : "Check for Updates…", enabled: !updateInFlight) { [weak self] in self?.checkUpdate(automatic: false) })
+        configureMenu.addItem(item("Open Documentation", symbol: "book") { NSWorkspace.shared.open(URL(string: "https://noria.ashray.xyz/docs/quickstart/")!) })
+        configureMenu.addItem(.separator())
         let version = Bundle.main.object(forInfoDictionaryKey: "NoriaVersion") as? String ?? "unknown"
-        menu.addItem(label("Noria \(dashboard?.version ?? version)"))
-        menu.addItem(item("Open Documentation", symbol: "book") { NSWorkspace.shared.open(URL(string: "https://noria.ashray.xyz/docs/quickstart/")!) })
+        configureMenu.addItem(label("Noria \(dashboard?.version ?? version)"))
+        let configureItem = item("Configure", symbol: "gearshape")
+        configureItem.submenu = configureMenu
+        menu.addItem(configureItem)
         menu.addItem(.separator())
         menu.addItem(item("Quit Menu Bar (Keep Noria Running)") { NSApplication.shared.terminate(nil) })
     }
@@ -107,12 +124,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if self.confirm("Remove \(account.title)?", "This unregisters the account. Its isolated sign-in files are retained; your normal client login is unchanged.", button: "Remove") { self.mutate(["account", "remove", account.id, "--json"]) }
         })
         header.submenu = commands; menu.addItem(header)
-        let windows = account.snapshot?.windows?.filter { ($0.model ?? "").isEmpty } ?? []
-        for (duration, title) in [(Int64(18_000_000_000_000), "5h"), (Int64(604_800_000_000_000), "Week")] {
-            let window = windows.first { $0.duration == duration }
+        let rows = visibleQuotaWindows(for: account)
+        for (title, window) in rows {
             let row = label(windowText(window, title: title)); row.indentationLevel = 1
-            if let reset = window?.resets_at { let format = DateFormatter(); format.dateStyle = .medium; format.timeStyle = .short; row.toolTip = "Resets \(format.string(from: reset))" }
+            if let reset = window.resets_at { let format = DateFormatter(); format.dateStyle = .medium; format.timeStyle = .short; row.toolTip = "Resets \(format.string(from: reset))" }
             menu.addItem(row)
+        }
+        if rows.isEmpty {
+            let unavailable = label("Usage unavailable"); unavailable.indentationLevel = 1
+            menu.addItem(unavailable)
         }
         if let snapshot = account.snapshot, Date().timeIntervalSince(snapshot.observed_at) > 150 {
             let stale = label("Last snapshot is stale"); stale.indentationLevel = 1; menu.addItem(stale)

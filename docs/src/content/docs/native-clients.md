@@ -1,23 +1,48 @@
 ---
-title: "Connect your normal clients"
-description: "Persistent configuration for Codex and Claude Code, plus desktop-specific setup."
+title: Connect your clients
+description: Make Codex and Claude Code use Noria by default, wherever you usually launch them.
 order: 3
-category: "Start"
-summary: "Persistent configuration for Codex and Claude Code, plus desktop-specific setup."
+category: Get started
 ---
 
-Use **Configure Clients…** or `noria integrate <provider> --yes` for reversible setup. Each client must read the configured root; a host with a separate root or explicit provider override needs its own setup. Reopen already-running clients after a change.
+Noria works best when your existing coding clients use it automatically. You don't need to start each session with a special wrapper. On macOS, the **N → Configure** submenu offers **Configure Codex** and **Configure Claude Code**.
 
-## Codex CLI and desktop
+## Codex
 
 ```sh
-noria integrate codex
 noria integrate codex --yes
 ```
 
-The target is `$CODEX_HOME/config.toml`, defaulting to `~/.codex/config.toml`. Codex desktop and compatible local hosts reading the same root receive the provider settings too.
+This configures the Codex `config.toml` read by your client. Codex CLI, the Codex desktop app, and other clients using that same configuration root can then send requests through Noria.
 
-For manual configuration, replace the two absolute paths below. Put `model_provider` at the file's root, before any TOML tables, and preserve existing model and other settings:
+## Claude Code
+
+```sh
+noria integrate claude --yes
+```
+
+This configures Claude Code's `settings.json` to use Noria's local base URL and credential helper. It applies wherever that settings file is used.
+
+For both providers, **restart clients that were already open** after the change.
+
+## Different configuration folders
+
+Noria normally detects `$CODEX_HOME` for Codex and `$CLAUDE_CONFIG_DIR` for Claude Code, falling back to the clients' default folders.
+
+If your desktop app or editor uses a different folder, select **N → Configure → Choose a Custom Client Folder…**, or tell Noria explicitly:
+
+```sh
+noria integrate codex --client-home "$HOME/.gg/codex" --yes
+noria integrate claude --client-home "$HOME/.gg/claude" --yes
+```
+
+`noria integrations --json` lists the folders Noria manages. An editor with its own base-URL override may need configuration inside that editor too.
+
+## Manual settings (advanced)
+
+The `integrate` command is the easier, reversible option. If you want to configure a client yourself, use these settings and substitute your actual absolute paths.
+
+**Codex** — in `config.toml`:
 
 ```toml
 model_provider = "noria"
@@ -31,63 +56,40 @@ supports_websockets = true
 [model_providers.noria.auth]
 command = "/absolute/path/to/noria"
 args = ["auth-token", "--home", "/absolute/path/to/.noria"]
-timeout_ms = 5000
-refresh_interval_ms = 300000
 ```
 
-The command helper supplies Noria's local credential without a shell export or provider token in the configuration. See the [official Codex configuration reference](https://developers.openai.com/codex/config-reference).
+Keep `model_provider` before any TOML tables. Preserve your other Codex settings. See the [Codex configuration reference](https://developers.openai.com/codex/config-reference).
 
-## Claude Code
-
-```sh
-noria integrate claude
-noria integrate claude --yes
-```
-
-The target is `$CLAUDE_CONFIG_DIR/settings.json`, defaulting to `~/.claude/settings.json`. The equivalent manual fields are:
+**Claude Code** — add these values to `settings.json`:
 
 ```json
 {
   "apiKeyHelper": "'/absolute/path/to/noria' auth-token --home '/absolute/path/to/.noria'",
   "env": {
     "ANTHROPIC_BASE_URL": "http://127.0.0.1:43119/claude",
+    "ENABLE_TOOL_SEARCH": "true",
     "ANTHROPIC_AUTH_TOKEN": "",
     "ANTHROPIC_API_KEY": "",
-    "CLAUDE_CODE_OAUTH_TOKEN": "",
-    "ENABLE_TOOL_SEARCH": "true"
+    "CLAUDE_CODE_OAUTH_TOKEN": ""
   }
 }
 ```
 
-Merge them into existing JSON, rather than replacing the file. Empty direct-credential overrides keep inherited tokens from bypassing the helper; the integration backs up their original values. On Windows, let the CLI generate correct executable quoting and JSON path escaping.
+Merge these fields into the existing file rather than replacing it. The CLI handles platform-specific quoting and backs up any fields it manages, so prefer that unless you have a particular reason to edit by hand.
 
-See [Anthropic's gateway setup guide](https://code.claude.com/docs/en/llm-gateway-connect) for settings precedence and supported client surfaces.
+## What about Claude Desktop?
 
-## Custom roots and editors
+Claude Desktop has its **own third-party inference configuration**, separate from Claude Code's `settings.json`. It won't automatically pick up Claude Code's integration.
+
+Use `noria integrate claude-desktop --json` for the local helper path and gateway details, then configure **Developer → Configure Third-Party Inference…** in Claude Desktop. The [Anthropic gateway guide](https://claude.com/docs/third-party/claude-desktop/gateway) explains the setting. Local-only routing isn't available to a remote or hosted client that can't reach your machine.
+
+## Go back to direct accounts
+
+`noria stop` restores the routing settings Noria installed. Your previous direct account sign-in remains intact. If you've configured an app manually (including Claude Desktop), switch it back through that app's own settings.
+
+For a permanent removal from one client root:
 
 ```sh
-noria integrate codex --client-home "$HOME/.gg/codex" --yes
-noria integrate claude --client-home "$HOME/.gg/claude" --yes
+noria integrate codex --remove --yes
+noria integrate claude --remove --yes
 ```
-
-The menu offers detected roots and **Choose a Custom Client Folder…**. An editor that overrides the base URL, auth, or model provider must use the equivalent settings in its own integration.
-
-Claude Code in VS Code has an additional pre-launch check using VS Code's `claudeCode.environmentVariables`; user `settings.json` reaches the child process but may not satisfy that extension check. Consult the [VS Code section of the official gateway guide](https://code.claude.com/docs/en/llm-gateway-connect#vs-code-extension) when it still asks for login. Do not store the local gateway secret in a shared workspace file.
-
-## Claude Desktop has separate configuration
-
-Claude Desktop's third-party inference settings are not Claude Code's `settings.json`. Use its **Developer → Configure Third-Party Inference…** window after enabling Developer Mode under **Help → Troubleshooting**.
-
-Choose Gateway, set the base URL to `http://127.0.0.1:43119/claude`, choose a helper-script credential, and use Noria's absolute executable with arguments `auth-token`, `--home`, and the absolute Noria home. Choose Bearer authentication. If model discovery is unavailable, configure model IDs actually available to the pool; Noria does not substitute models.
-
-Run `noria integrate claude-desktop --json` to print the exact local paths and values, without editing the app.
-
-The corresponding configuration keys are `inferenceProvider`, `inferenceGatewayBaseUrl`, `inferenceCredentialKind`, `inferenceCredentialHelper`, `inferenceCredentialHelperArgs`, and `inferenceGatewayAuthScheme`. Use the [official configuration window guide](https://claude.com/docs/third-party/claude-desktop/in-app-configuration), [gateway guide](https://claude.com/docs/third-party/claude-desktop/gateway), and [helper reference](https://claude.com/docs/third-party/claude-desktop/credential-helper) for app-version and managed-policy requirements. This route has not been live-account validated by Noria.
-
-**Noria does not edit that separate Desktop form, so Stop does not undo it.** Return Desktop to its standard Anthropic sign-in configuration for direct use. Cloud/remote sessions cannot use this computer's loopback endpoint, and managed policy may prevent overrides.
-
-## Restore direct use
-
-`noria stop` restores routing fields for profiles registered through the menu or `integrate`. The normal client's saved login remains intact throughout; an already-running process may need reopening.
-
-Manually pasted snippets are not registered for restoration. Prefer `integrate` and inspect `noria integrations --json` to see managed files. The optional `noria run codex --` wrapper remains available for one-off tests, not ordinary setup.

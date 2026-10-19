@@ -1,55 +1,94 @@
 # Noria
 
-**Set up once. Use your coding agents normally.**
+**Stop switching accounts. Start using more of your limits.**
 
-Noria is a lightweight local account router for Codex and Claude Code. Healthy sessions stay on their account to preserve prompt-cache reuse; new sessions and required failovers are placed using each account's own remaining allowance and reset times.
+Noria is a **smart local proxy for Codex and Claude Code**. Connect the accounts you already use, point your coding clients at Noria once, and keep coding normally. Noria chooses where new sessions go, keeps them on the same account for prompt caching, and switches to another usable account when a limit gets in the way.
 
-[Get started](https://noria.ashray.xyz/docs/quickstart/) · [Documentation](https://noria.ashray.xyz/docs/) · [Releases](https://github.com/amxv/noria/releases)
+No more logging out of one account just to log into another. No more manually tracking when five-hour and weekly allowances reset.
 
-## Install without Node or npm
+**[Website](https://noria.ashray.xyz)** · **[Get started](https://noria.ashray.xyz/docs/quickstart)** · **[How routing works](https://noria.ashray.xyz/docs/architecture)** · **[Releases](https://github.com/amxv/noria/releases)**
 
-**macOS and Linux:**
+## Why use Noria?
+
+Your accounts each have their own usage limits, their own reset times, and their own prompt caches. Picking an account is more complicated than choosing the one with the biggest number remaining.
+
+Noria handles three things:
+
+1. **Smarter placement.** New sessions consider the remaining five-hour and weekly allowances, when each resets, and how much work is already assigned. A little quota about to reset can be worth using before a larger allowance that lasts for days.
+2. **Sticky conversations.** A conversation stays on its chosen account as long as that account can serve it. This preserves account-level prompt-cache reuse instead of bouncing between accounts on every request.
+3. **Automatic failover.** If an applicable limit blocks the next request, Noria looks for another eligible account of the *same provider* and safely retries the pending request. Then it stays on that account.
+
+```text
+                        Noria (localhost)
+Codex / Claude Code ─────────┬───────────────→ Your account A
+                            ├───────────────→ Your account B
+                            └───────────────→ Your account C
+
+                   One local route. Multiple accounts.
+```
+
+Noria optimizes the allowances you already have; it doesn't generate extra quota or guarantee work can continue after every account is exhausted.
+
+## Install
+
+**macOS and Linux**
 
 ```sh
 curl -fsSL https://noria.ashray.xyz/install.sh | sh
 ```
 
-**Windows (PowerShell):**
+**Windows (PowerShell)**
 
 ```powershell
 irm https://noria.ashray.xyz/install.ps1 | iex
 ```
 
-macOS installation includes the native **N** menu bar app. It manages email-first accounts, optional aliases, sign-ins, usage, service controls, health and upgrades without keeping a terminal open. Every installer verifies the exact release checksum. The standalone runtime has no Node or npm dependency.
+On macOS you also get a native menu bar app for account management, quota usage, and Start/Stop controls.
 
-## CLI setup
+## Set up once
 
 ```sh
+# Add accounts (each opens the provider's browser sign-in)
+noria account add codex
 noria account add codex
 noria account add claude
+
+# Start the background proxy
 noria start
+
+# Route your existing clients through Noria
 noria integrate codex --yes
 noria integrate claude --yes
 ```
 
-Each Add opens native browser sign-in. Repeat it for additional accounts. Reopen existing clients after configuration, then run `codex` or `claude` normally. No wrapper is required. Standalone binaries need no Node/Agent SDK runtime.
+The integration changes the relevant client configuration, not your existing conversations or sign-in. **Restart any clients you already have open.** Then launch `codex` or `claude` exactly as before—no wrapper command required.
+
+If your client uses a custom configuration folder, specify it with `--client-home`. See the [setup guide](https://noria.ashray.xyz/docs/quickstart) for desktop apps and alternative paths.
+
+## Day to day
 
 ```sh
-noria status
-noria stop      # restore managed direct settings and existing native login
-noria start
-noria upgrade
+noria status            # Account usage and reset times
+noria quota refresh     # Fetch a fresh usage snapshot
+noria health            # Check local routing configuration
+noria stop              # Return managed clients to direct provider routing
+noria start             # Start routing again
+noria upgrade           # Upgrade the CLI and macOS menu bar app
 ```
 
-Closing a terminal or quitting the menu does not stop the background service. Set login preferences for automatic startup. Stop does not copy a pool account into the normal client; clients that cache settings may need reopening.
+Accounts are displayed by **email address by default**. You can optionally set aliases, enable or disable individual accounts, and sign in again from the CLI or the macOS menu bar.
 
-## Boundaries
+Everything Noria manages lives locally. Its gateway runs on loopback, and each upstream account has separate credentials. Model requests still go to their respective provider—Noria is a router, not a local model.
 
-Noria never buys credits, redeems quota resets, or changes providers/models. No quota exists when all accounts are exhausted. A forced switch starts a cold account cache. Already-delivered model output is not spliced or replayed. Tests use isolated profiles and controlled upstreams, not live subscriptions.
+## Important boundaries
 
-The macOS app uses Zodex-style, checksum-verified CLI installation and ad-hoc signing, not Developer ID notarization. No security settings or quarantine flags are weakened. Browser downloads can be treated differently. See [installation details](https://noria.ashray.xyz/docs/installation-and-upgrades/) and [client-specific setup](https://noria.ashray.xyz/docs/native-clients/), including Claude Desktop's separate form.
+Noria doesn't switch providers or models, purchase usage, move prompt caches between accounts, or splice an already-delivered partial response. Failover retries a request only when safe. Live subscription behavior depends on each provider's supported client interfaces and terms.
 
-## Development
+The [architecture guide](https://noria.ashray.xyz/docs/architecture) explains the algorithm, and [security and limitations](https://noria.ashray.xyz/docs/security-and-limitations) covers the boundaries in more detail.
+
+## Develop
+
+Noria is written in Go. Its macOS menu bar is a native Swift wrapper over the CLI, which owns accounts, routing, settings, and updates. The website uses Astro and ZueDocs.
 
 ```sh
 make check
@@ -59,4 +98,4 @@ make docs-check
 make docs-build
 ```
 
-All tests must use temporary auth/config homes. The Go CLI owns application state; Swift is presentation only. Apache-2.0. See LICENSE and THIRD_PARTY_NOTICES.md.
+See [Contributing](CONTRIBUTORS.md). Licensed under [Apache-2.0](LICENSE).

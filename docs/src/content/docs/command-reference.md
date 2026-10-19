@@ -1,75 +1,67 @@
 ---
-title: "CLI reference"
-description: "Service, accounts, client integration, preferences, and updates."
-order: 5
-category: "Reference"
-summary: "Service, accounts, client integration, preferences, and updates."
+title: CLI reference
+description: The commands for account management, routing, updates, and configuration.
+order: 7
+category: Reference
 ---
 
-## Background service
+The `noria` CLI is the source of truth for the background service and the macOS menu bar. Add `--help` to most commands for available options.
 
-```sh
-noria init
-noria start
-noria stop
-noria restart
-noria status --json
-noria health --json
-```
+## Start and stop
 
-Start/Stop return control to the terminal. Repeated calls are safe. Stop restores managed direct-provider settings before stopping. There is no public `serve` command.
+| Command | What it does |
+| --- | --- |
+| `noria start` | Start the background proxy and enable registered client routing. |
+| `noria stop` | Stop routing and restore the direct settings Noria manages. |
+| `noria restart` | Restart the background service. |
+| `noria status` | Show accounts, usage remaining, reset times, and routing state. |
+| `noria health` | Check client configuration and the local gateway. |
+
+Use `--json` with `status` or `health` for structured output.
 
 ## Accounts
 
+| Command | What it does |
+| --- | --- |
+| `noria account add codex` | Start the browser sign-in to add a Codex account. |
+| `noria account add claude` | Start the browser sign-in to add a Claude account. |
+| `noria account list` | Show accounts and their display names. |
+| `noria account relogin EMAIL` | Sign in again to an existing account. |
+| `noria account rename EMAIL "Alias"` | Set an optional display name; empty string restores the email. |
+| `noria account enable EMAIL` | Allow new work to use the account. |
+| `noria account disable EMAIL` | Exclude the account from new placement. |
+| `noria account remove EMAIL` | Unregister the account. |
+| `noria quota refresh` | Fetch current quota information for the pool. |
+
+Use an account ID instead of its email when two entries are ambiguous. Find IDs with `noria account list --json`.
+
+## Client integration
+
 ```sh
-noria account add codex
-noria account add claude --alias "Work"
-noria account list --json
-noria account relogin alex@example.com
-noria account rename alex@example.com "Work"
-noria account rename alex@example.com ""
-noria account enable alex@example.com
-noria account disable alex@example.com
-noria account remove alex@example.com
-noria quota refresh
+noria integrate codex                     # Preview changes
+noria integrate codex --yes               # Apply changes
+noria integrate claude --yes
+noria integrate codex --remove --yes      # Remove managed configuration
+noria integrations --json                 # List registered configurations
 ```
 
-Email is the default name. Use an immutable ID when an email/alias is ambiguous. Remove retains isolated profile files for recovery.
+For clients using a nonstandard configuration folder, pass `--client-home` with the directory path. See [Connect your clients](/docs/native-clients).
 
-New accounts are always created with `noria account add codex` or `noria account add claude`, which starts the native browser sign-in. Stable IDs are generated automatically. Use `noria account relogin <id>` if a sign-in was interrupted.
-
-## Persistent client setup
+## Preferences and upgrades
 
 ```sh
-noria integrate codex
-noria integrate codex --yes
-noria integrate claude --client-home "$HOME/.gg/claude" --yes
-noria integrate codex --remove --yes
-noria integrations --json
-```
-
-Without `--yes`, integration previews the target and changes. Restore preserves unrelated edits; a conflicting external routing edit is not silently overwritten.
-
-## Login preferences and menu
-
-```sh
-noria preferences --json
 noria preferences start-at-login on
-noria preferences menubar-at-login on
+noria preferences menubar-at-login on    # macOS
 noria preferences auto-update on
-noria menubar install
-noria menubar open
-```
-
-The menu is macOS-only. Background lifecycle works on macOS, Linux, and Windows. Linux manual Start can fall back to a local supervisor when user systemd is unavailable; its login autostart requires a working user service manager.
-
-## Updates and advanced helpers
-
-```sh
 noria upgrade --check
 noria upgrade
+noria menubar open                      # macOS
 ```
 
-Verified updates defer while requests or streaming connections are active. The menu's automatic checks call this same CLI operation.
+Change `on` to `off` to disable a preference. Upgrades wait for active requests to finish.
 
-`--home <path>` and `NORIA_HOME` select a different private pool. `noria auth-token` is a credential helper and intentionally prints a secret: never share its output. `noria env` also prints local credentials. Neither is necessary for normal daily use after integration.
+## Advanced options
+
+`NORIA_HOME` or `--home <path>` selects a separate Noria configuration and account pool (default `~/.noria`).
+
+`noria auth-token` is an internal local credential helper. It prints a secret, so don't paste its output into logs or support messages. `noria env codex|claude` and `noria run codex|claude -- …` are optional, one-off routing tools; normal clients should use persistent integration instead.

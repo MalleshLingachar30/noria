@@ -1,67 +1,59 @@
 ---
-title: Everyday use
-description: Manage your pool from the menu bar or a few nonblocking commands.
+title: Day-to-day use
+description: Start, stop, check usage, and upgrade Noria while you keep coding.
 order: 4
-category: Start
-summary: Manage your pool from the menu bar or a few nonblocking commands.
+category: Get started
 ---
 
-Once your accounts and clients are connected, Noria runs independently in the background. Keep using your normal coding tools.
+After setup, Noria stays out of your way. Just open Codex or Claude Code normally.
 
-## The menu bar
+## On macOS: the menu bar
 
-The **N** icon shows the router state. Open it to see every account's email or chosen alias, five-hour and weekly percentages **remaining**, and reset countdowns. Hover over a quota line for the exact local reset date and time.
+Click the **N** icon to see your accounts, remaining allowance, and reset times. Opening the menu refreshes usage in the background. Only providers you've added are shown, and a quota window appears only if the provider reports it—for example, Codex plans without a five-hour limit won't show an empty five-hour row.
 
-Cached values appear immediately. A fresh read runs when the menu opens, without blocking its controls. A failed read is shown as unavailable or stale, never as free quota.
+The main menu stays focused on account usage, **Start/Stop**, and **Refresh Usage**. Under **Configure**, you'll find **Configure Codex**, **Configure Claude Code**, account additions, Health Check, login preferences, updates, and documentation. To relogin, rename, or disable an existing account, use its submenu.
 
-Use an account's submenu to disable/enable it, sign in again, rename it, or remove it from the pool. **Health Check** verifies the local endpoint and registered settings without sending a model prompt. There are no quota-exhaustion notifications.
+Closing the menu bar app **does not** stop the background service.
 
-**Quit Menu Bar** closes only the UI. It does not stop your router or change client settings.
+## In your terminal
 
-## Start and stop
-
-```bash
-noria start
-noria stop
+```sh
+noria status           # Accounts and remaining limits
+noria quota refresh    # Read usage now
+noria health           # Check your local setup
+noria stop             # Temporarily use providers directly
+noria start            # Route through Noria again
 noria restart
-noria status
+noria upgrade          # Check and install a new release
 ```
 
-These commands return to your terminal after the operation; no terminal needs to remain open. Start is safe to repeat. The public foreground `serve` command is no longer part of the workflow.
+Start and Stop return immediately; you don't need to leave a terminal open.
 
-Start enables Noria routing in its registered profiles. Stop restores their previous direct-provider settings, retaining the native client's last login. It does not sign that client into a different Noria pool account. Clients that keep configuration in memory need to be reopened after a route change.
+**What happens when you stop?** Noria restores routing settings that it installed, so your clients use their original direct provider account again. Restart already-running clients if they have cached the old settings. Noria does not change the account you're signed into directly.
 
-Manually configured applications that Noria does not manage—such as a Claude Desktop third-party profile entered through its own form—must be switched back in that application's settings. Noria cannot rewrite a cloud-hosted client's routing.
+## Start at login
 
-## Login preferences
+On macOS, **Launch Menu Bar at Login** and **Start Noria at Login** are separate settings. You can have one without the other.
 
-The menu exposes independent checkboxes:
+The CLI equivalents are:
 
-**Launch Menu Bar at Login** starts the native macOS UI. **Start Noria at Login** starts routing automatically, even if you do not open the UI. **Automatically Update** lets the CLI install verified stable releases when it can safely restart.
-
-```bash
+```sh
 noria preferences start-at-login on
-noria preferences menubar-at-login on
+noria preferences menubar-at-login on    # macOS
 noria preferences auto-update on
 ```
 
-Use `off` to disable a preference. macOS may ask you to approve a login item in System Settings. Linux login startup requires a systemd user session; manual background start/stop works without one. Windows uses the current user's Task Scheduler, without storing a password.
+Use `off` to disable a preference.
 
-## Updates
+## Upgrades
 
-```bash
+Choose **Check for Updates…** in the macOS menu, or run:
+
+```sh
 noria upgrade --check
 noria upgrade
 ```
 
-The updater verifies checksums and stages the new binary before replacement. The macOS CLI and menu app update together. Active requests take priority: a busy router defers applying the update rather than cancelling a generation. Automatic checks run from the service as well as through the menu's CLI actions.
+Noria will wait rather than interrupt an active model request during an upgrade. See [Installation & upgrades](/docs/installation-and-upgrades) for details.
 
-## Check an account now
-
-```bash
-noria quota refresh
-noria status --json
-noria health --json
-```
-
-These commands read operational metadata, not your conversations. If every matching account is exhausted, Noria reports that and any known next usable reset. It never buys extra quota or changes your requested model.
+If something looks wrong, start with `noria health` and the [troubleshooting guide](/docs/troubleshooting).

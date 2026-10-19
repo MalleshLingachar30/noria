@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "version": "0.3.2",
+  "running": true,
+  "preferences": {"start_at_login": true, "menubar_at_login": true, "auto_update": true},
+  "client_roots": [{"provider": "codex", "root": "/example/.codex"}],
+  "integrations": [],
+  "accounts": [{
+    "id": "pro-fixture",
+    "email": "pro@example.com",
+    "provider": "codex",
+    "enabled": true,
+    "snapshot": {
+      "available": true,
+      "observed_at": "2026-10-20T00:58:00+05:30",
+      "windows": [
+        {"name": "five_hour", "used_percent": null, "duration": 18000000000000},
+        {"name": "seven_day", "used_percent": 2.0, "duration": 604800000000000, "resets_at": "2030-10-27T00:58:00Z"}
+      ]
+    }
+  }]
+}

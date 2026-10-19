@@ -106,6 +106,8 @@ jobs:
           if [ "$(uname -m)" = "$swift_arch" ]; then
             stage/noria --version
             stage/Noria.app/Contents/MacOS/noria-menubar --check
+            stage/Noria.app/Contents/MacOS/noria-menubar --validate-status-json apps/menubar/Tests/status.json
+            stage/Noria.app/Contents/MacOS/noria-menubar --validate-compact-status-json apps/menubar/Tests/compact-status.json
           fi
           cp LICENSE THIRD_PARTY_NOTICES.md stage/
           COPYFILE_DISABLE=1 tar -czf "dist/noria_darwin_${ARCH}.tar.gz" -C stage noria Noria.app LICENSE THIRD_PARTY_NOTICES.md
@@ -168,6 +170,7 @@ jobs:
             codesign --verify --deep --strict "$NORIA_INSTALL_DIR/Noria.app"
             "$NORIA_INSTALL_DIR/Noria.app/Contents/MacOS/noria-menubar" --check
             "$NORIA_INSTALL_DIR/Noria.app/Contents/MacOS/noria-menubar" --validate-status-json apps/menubar/Tests/status.json
+            "$NORIA_INSTALL_DIR/Noria.app/Contents/MacOS/noria-menubar" --validate-compact-status-json apps/menubar/Tests/compact-status.json
           fi
       - name: Verify native Windows install
         if: runner.os == 'Windows'

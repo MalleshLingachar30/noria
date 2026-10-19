@@ -1,35 +1,111 @@
 ---
-title: Architecture and limits
-description: Reference for native protocols, quota telemetry, service lifetime, and recovery boundaries.
-order: 12
-category: Reference
-summary: Reference for native protocols, quota telemetry, service lifetime, and recovery boundaries.
+title: How routing works
+description: How Noria chooses accounts, keeps prompt caches warm, and switches when limits are reached.
+order: 5
+category: How it works
 ---
 
-Noria is a Go daemon and CLI. Its Swift menu bar is a native presentation layer over CLI JSON and commands. No Noria cloud service or external database is in the request path.
+Noria is a **smart proxy running on your computer**. Your normal Codex and Claude Code clients talk to Noria instead of directly to their provider. Noria picks one of your already-authorized accounts and forwards the original request.
 
-## Provider controls
+The goal is simple: **make better use of the limits across your accounts while keeping account switching out of your workflow.**
 
-Codex quota reads use the installed `codex app-server` in the account's isolated `CODEX_HOME`. Claude quota reads invoke the installed `claude` binary with control-only streaming JSON: `initialize`, then `get_usage`. No Node SDK is needed and no user turn is submitted for telemetry.
+```text
+  Your Codex / Claude Code session
+                 │
+                 ▼
+         Noria · localhost
+        /                  \
+   Codex pool          Claude pool
+    A  B  C              D  E
+        │                  │
+        ▼                  ▼
+     OpenAI             Anthropic
+```
 
-The Claude control operation is experimental. Native versions can change authentication and control schemas. Unknown or stale data remains unknown; it is never converted into a full allowance. Backend quota rejections are authoritative.
+Codex requests go only to Codex accounts, and Claude Code requests go only to Claude accounts. Noria never silently changes your model or provider.
 
-## Scheduler
+## 1. A new session needs an account
 
-Accounts share the scheduling policy but not credentials or protocols. Admission checks every applicable limit. Initial placement and failover use bounded expiry/capacity estimates, recent bound-session demand, and atomic in-flight reservations. Per-window observations train consumption estimates; reset epochs are not mixed into one consumption sample.
+When you start a new conversation, Noria considers every eligible account of the correct provider.
 
-Bindings survive restarts. Account aliases do not change binding keys. The scheduler does not move a healthy binding because a score changes.
+It looks at four things:
 
-## Native streaming
+1. **Remaining allowance.** Is the account allowed to make the request? Both the five-hour and weekly windows (plus any applicable model limits) must have capacity.
+2. **Reset times.** How soon will unused allowance expire? Five-hour and weekly clocks are independent, even on the same account.
+3. **Current work.** Is this account already handling requests or supporting active conversations? Avoid piling new sessions onto an account whose capacity is likely to be consumed by existing work.
+4. **Observed consumption.** Noria learns roughly how much each completed request consumes from each window and uses that information to estimate useful capacity.
 
-Codex Responses uses HTTP/SSE or WebSockets; Claude uses native Messages. Noria preserves model settings and event bodies. A rejected, unfulfilled request can be retried before output is delivered. Already-delivered text or tool output is not spliced into a new generation or silently replayed.
+Noria scores the eligible accounts using a bounded lookahead. The score favors allowance that is both **usable now** and **at risk of expiring soon**, without overloading one account.
 
-A provider may reject continuation state from a different account. Native-client mock tests verify ordinary resume/failover behavior, but do not prove every live provider feature or subscription combination.
+### Example: 5% can beat 80%
 
-## Service and updates
+Consider two Codex accounts:
 
-macOS uses user-scoped launchd. Linux uses systemd --user when available, otherwise a detached local supervisor. Windows uses a detached user supervisor and Task Scheduler for login startup. No administrator service or stored user password is required for the standard setup.
+| | Account A | Account B |
+| --- | --- | --- |
+| Weekly allowance left | **5%** | 80% |
+| Weekly reset | **In 45 minutes** | In 6 days |
+| Five-hour window | Has capacity | Has capacity |
 
-The updater stages checksum-verified release assets. A short admission gate is acquired only when no model request is active. In-flight work defers the update; a stalled updater's admission gate expires. Idle WebSocket connections may reconnect after a service update. The router's bindings remain in its private state.
+For a suitable **new session**, A can be a smarter choice. Its last 5% is about to reset, while B's 80% will still be around for days. Saving A's quota would waste an opportunity to use it.
 
-Stop restores registered direct-client routing fields, leaving original native credentials untouched. It does not redirect a manually configured app or force an already-running app to reload its own settings.
+That doesn't mean Noria always picks A. If existing sessions are likely to use up its last 5%, or the other quota window would prevent useful work, B may be better. The decision considers both windows, outstanding requests, and expected demand.
+
+**Important:** Noria doesn't compare five-hour percentages to weekly percentages as if they were equivalent tokens. It estimates capacity within each window separately.
+
+## 2. Once assigned, a conversation stays put
+
+After the first successful request, Noria binds that conversation to its account.
+
+```text
+  Conversation 42
+     Request 1 ───→ Account A
+     Request 2 ───→ Account A
+     Request 3 ───→ Account A
+     Request 4 ───→ Account A
+```
+
+This is **session affinity** (or *sticky routing*). It matters because prompt caches are account-level. Switching on every request would throw away cache reuse and may make work slower and less efficient.
+
+Noria doesn't rebalance an active conversation just because another account becomes more attractive or resets. The original binding is persisted and survives a Noria restart.
+
+## 3. A limit triggers a handoff
+
+Suppose Account A hits its weekly limit on the next request:
+
+```text
+  Conversation 42 ──→ Account A ──→ quota rejected
+                                        │
+                           find eligible Account B
+                                        │
+  Pending request ──────────────────────→ B
+  Following requests ───────────────────→ B
+```
+
+Noria marks the applicable limit as blocked, chooses another usable account **of the same provider**, and retries the *unfulfilled request* when it's safe to do so. The conversation then sticks to B. If A resets later, Noria doesn't bounce that conversation back.
+
+The cache on B starts cold and warms through normal requests. Noria doesn't attempt to transfer caches between accounts.
+
+**Where automatic continuation stops:** If the client has already received part of a model response, Noria cannot transparently splice another account's output into it or replay completed tool actions. In that case, the client may need a normal Continue request. This is the same practical boundary you encounter when manually changing accounts mid-conversation.
+
+## 4. Each limit has its own clock
+
+Every account can have different reset times for its five-hour and weekly windows. A first-use window starts only when real work begins—Noria never sends dummy prompts to force a reset clock to start.
+
+An account is available only when **all applicable limits** permit the request. A five-hour reset does not clear an exhausted weekly limit, and a healthy weekly allowance cannot bypass a model-specific limit.
+
+Telemetry isn't always perfect. Noria uses recent provider usage readings, but an actual quota rejection from the provider takes priority. Missing readings are treated as **unknown**, not as an unlimited allowance. If no account can serve a request, Noria reports the shortage and a known next reset if one is available.
+
+## 5. Why routing stays local
+
+The background Go service owns the account pool, session bindings, quota observations, and scheduling decisions. Each authorized account has a separate native sign-in profile. The macOS menu bar simply displays CLI state and provides controls.
+
+The proxy runs on loopback (`localhost`). The model request still goes to OpenAI or Anthropic using the chosen account. Noria is **not a cloud relay, a model host, or a way to bypass a provider's actual usage caps**.
+
+## The tradeoff
+
+Noria optimizes how *new* sessions are distributed, but protecting an active conversation's cache comes first. One long healthy conversation might leave some capacity unused in other accounts. Multiple independent conversations give Noria more opportunities to distribute work intelligently.
+
+That's by design: **a sticky, quota-aware router—not a round-robin load balancer.**
+
+For the constraints around provider compatibility, credentials, and partially streamed requests, see [Security & limitations](/docs/security-and-limitations).

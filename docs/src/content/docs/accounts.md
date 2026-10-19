@@ -1,53 +1,52 @@
 ---
-title: "Manage accounts and aliases"
-description: "Add accounts by signing in and display their emails or optional aliases."
+title: Your account pool
+description: Add multiple Codex and Claude Code accounts, view limits, and manage sign-ins.
 order: 2
-category: "Start"
-summary: "Add accounts by signing in and display their emails or optional aliases."
+category: Get started
 ---
+
+Every account you add has its own credentials, usage allowance, and reset times. Noria shows **email addresses by default**. Aliases are optional.
 
 ## Add an account
 
-Use **Add Codex Account…** or **Add Claude Account…** in the menu, or:
+From the macOS menu bar, choose **Configure → Add Codex Account…** or **Configure → Add Claude Account…**.
+
+Or use the CLI:
 
 ```sh
 noria account add codex
 noria account add claude
 ```
 
-The native sign-in opens in your browser. Choose the intended account. After sign-in, Noria shows its email and refreshes usage. Incomplete new sign-ins stay disabled until completed with **Sign In Again…**.
+Sign in through your browser and repeat for additional accounts. For example, run `noria account add codex` three times to add three different Codex accounts.
 
-Pool authentication is separate from your ordinary client login. Adding an account does not switch the account used by a normal direct Codex or Claude installation.
+Noria checks each new account's identity and usage. If sign-in is interrupted, select **Sign In Again…** or run `noria account relogin <id>` using the ID shown by `noria account list --json`.
 
-## Optional aliases
-
-Choose **Rename / Set Alias…** on an account. Leave the alias empty, or choose **Use Email as Name**, to show its email again.
+## Check remaining usage
 
 ```sh
-noria account rename alex@example.com "Work"
-noria account rename alex@example.com ""
-```
-
-The immutable internal ID stays the same, so renaming does not move sessions or discard their account affinity.
-
-## Enable, relogin, or remove
-
-```sh
-noria account disable alex@example.com
-noria account enable alex@example.com
-noria account relogin alex@example.com
-noria account remove alex@example.com
-```
-
-These actions are also in each account's submenu. Disabling prevents new placement on that account; it does not revoke the native login or cancel already accepted work. Removing unregisters the account but retains its profile for recovery; it is not secure erasure or provider logout.
-
-When an email or alias is ambiguous, use the internal ID from `noria account list --json`. Adding the same subscription twice does not create more quota.
-
-## Usage information
-
-```sh
-noria quota refresh
 noria status
+noria quota refresh
 ```
 
-Five-hour and weekly windows have independent reset times. The menu and status table show **percentage remaining**. Missing or stale data is labeled, never presented as a full allowance. A failed telemetry read does not clear an authoritative quota rejection. Usage reads do not submit model prompts or redeem reset credits.
+The menu and status command show **percentage remaining** for the five-hour and weekly allowances, plus their reset times. The windows reset independently on each account. If usage is temporarily unavailable, Noria shows it as unknown—not as free quota.
+
+## Rename or temporarily disable
+
+Choose an account's submenu on macOS, or use:
+
+```sh
+noria account rename you@example.com "Work"
+noria account rename you@example.com ""       # Show email again
+noria account disable you@example.com
+noria account enable you@example.com
+noria account relogin you@example.com
+```
+
+An alias changes only what you see, not where an existing session is routed. A disabled account is excluded from new placement; this does not cancel already accepted work or sign you out.
+
+To remove an account entirely from the pool, run `noria account remove you@example.com`. The isolated login files are retained for recovery.
+
+If two accounts have the same email or alias, use their unique IDs from `noria account list --json`.
+
+**Good to know:** Adding the same subscription more than once won't increase its allowance. Noria only helps distribute work across genuinely separate authorized accounts.
