@@ -1,0 +1,10 @@
+# CLI deployments upload from the repository root because the Vercel project
+# Root Directory is docs. Only documentation source belongs on this service.
+*
+!docs/
+!docs/**
+docs/node_modules/
+docs/dist/
+docs/.astro/
+docs/.vercel/
+docs/.env*
