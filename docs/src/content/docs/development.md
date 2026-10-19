@@ -10,7 +10,7 @@ Noria is a Go CLI and local gateway. The npm package distributes the native exec
 
 ## Build and check
 
-Use the Go version declared in `go.mod`, Node.js for the npm wrapper checks, and Bun for the docs workspace. Native Codex and Claude executables are needed for interactive use, not for tests that substitute fake processes. The Claude quota bridge also requires Node and its pinned SDK.
+Use the Go version declared in `go.mod`, Node.js for the npm wrapper checks, and Bun for the docs workspace. Native Codex and Claude executables are needed for interactive use, not for tests that substitute fake processes. Noria invokes the Claude native control protocol directly in Go, without an SDK bridge.
 
 ```bash
 git clone https://github.com/amxv/noria.git
@@ -30,7 +30,7 @@ Use `make install-local` to install a local build. `make build-all` builds the c
 | `cmd/noria/` | Process entrypoint and errors |
 | `internal/app/` | CLI, daemon lifecycle, control commands, native wrappers |
 | `internal/core/` | Affinity, quota eligibility, placement, reservations, persisted state |
-| `internal/provider/` | Native quota readers, credentials, embedded Claude bridge |
+| `internal/provider/` | Native quota readers, credentials, Claude control requests |
 | `internal/proxy/` | Local gateway policy, HTTP/SSE and WebSocket transports |
 | `internal/config/` | Private home, configuration, atomic writes, locks |
 | `internal/model/` | Shared account and quota vocabulary |

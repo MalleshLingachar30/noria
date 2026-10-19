@@ -34,7 +34,7 @@ Noria does not intentionally log request content, upstream tokens, or the gatewa
 
 Requests go from the local gateway to the selected provider’s native service. Quota readers also contact provider services through native account tooling. There is no Noria-hosted service, dashboard, Redis, or third-party routing service in that request path.
 
-Installing Noria or running `noria bridge setup` performs dependency or binary downloads. The Claude SDK is installed only by the explicit setup command, not on the request path. The documentation website is a separate static site.
+Installing Noria through npm downloads the Noria release binary. Direct native releases require no npm installation, and Claude quota reads require no separately installed SDK or Node runtime. The documentation website is a separate static site.
 
 ## Limits that matter
 

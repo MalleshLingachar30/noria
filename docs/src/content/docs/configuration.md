@@ -15,7 +15,7 @@ Use the CLI for ordinary account setup. You do not need to craft credential JSON
 | Noria home | Absolute `~/.noria` | `NORIA_HOME` environment variable |
 | Listener | `127.0.0.1:43119` | `noria serve --listen <address>` |
 | Account eligibility | Enabled; any requested model for its provider | Account enable/disable; repeatable `account add --model` |
-| Claude usage SDK | `@anthropic-ai/claude-agent-sdk@0.3.287` | Explicit `noria bridge setup` |
+| Claude quota reader | Installed native `claude` binary | Automatic control-only `get_usage` request |
 | Gateway credential | Random local secret | Created by `noria init` |
 
 The listen address must use a numeric loopback IP. Public interfaces such as `0.0.0.0` are rejected. This is a local single-user gateway, not a hosted inference endpoint.
@@ -65,7 +65,6 @@ Adding, removing, enabling, or disabling an account requests an immediate reload
 | `accounts/<id>/` | Isolated native authentication profile |
 | `scheduler.json` | Bindings, quota snapshots, learned estimates, and cooldown metadata |
 | `daemon.json` | Current local daemon address |
-| `bridge/` | Explicitly installed Claude SDK dependency |
 | `*.lock` | Short control-operation or daemon ownership locks |
 
 Treat the whole home as private. Directories use mode `0700` and Noria-managed state files use `0600` where supported. Files written by upstream native clients follow those clients’ storage behavior. Windows permissions require the operating system’s own access controls as well.

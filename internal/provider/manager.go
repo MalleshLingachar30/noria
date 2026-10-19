@@ -21,12 +21,11 @@ type Manager struct {
 	snapshots     map[string]model.Snapshot
 	completed     map[string]time.Time
 	codexCommand  string
-	nodeCommand   string
 	claudeCommand string
 }
 
 func New(home string) *Manager {
-	return &Manager{home: home, gates: make(map[string]chan struct{}), snapshots: make(map[string]model.Snapshot), completed: make(map[string]time.Time), codexCommand: "codex", nodeCommand: "node", claudeCommand: "claude"}
+	return &Manager{home: home, gates: make(map[string]chan struct{}), snapshots: make(map[string]model.Snapshot), completed: make(map[string]time.Time), codexCommand: "codex", claudeCommand: "claude"}
 }
 
 func (m *Manager) profile(a model.Account) (string, error) {
@@ -171,13 +170,10 @@ func (m *Manager) refreshNative(ctx context.Context, a model.Account, p string) 
 
 func (m *Manager) Doctor() []string {
 	var issues []string
-	for _, tool := range []string{m.codexCommand, m.claudeCommand, m.nodeCommand} {
+	for _, tool := range []string{m.codexCommand, m.claudeCommand} {
 		if _, err := lookPath(tool); err != nil {
 			issues = append(issues, tool+" executable unavailable")
 		}
-	}
-	if _, err := os.Stat(filepath.Join(m.home, "bridge", "node_modules", "@anthropic-ai", "claude-agent-sdk", "package.json")); err != nil {
-		issues = append(issues, "Claude usage bridge missing; run noria bridge setup")
 	}
 	return issues
 }

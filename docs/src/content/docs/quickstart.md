@@ -18,9 +18,9 @@ noria --help
 
 The npm installer downloads the native binary for your platform from [GitHub Releases](https://github.com/amxv/noria/releases). macOS, Linux, and Windows each have amd64 and arm64 builds. If the download fails, installation can fall back to a local Go build when Go is available. You can also download the matching binary directly from a release.
 
-Install the native `codex` or `claude` executable for the provider you want to use. Noria does not replace either client. Claude quota reads also need Node.js, npm, and the explicit SDK setup below.
+Install the native `codex` or `claude` executable for the provider you want to use. Noria does not replace either client. Claude quota reads use the installed `claude` binary directly; no SDK or additional runtime installation is needed.
 
-Node is also needed to invoke the npm shim. A directly downloaded Go binary can run Codex routing without Node; the Claude quota bridge still needs it. The development environment uses Node 24.22, not a promised minimum-version matrix. Existing provider subscriptions and explicit authorization to use each account are prerequisites; Noria does not create them.
+Node is only needed to invoke the npm installation shim. A directly downloaded Go binary can route both Codex and Claude without Node or npm. Existing provider subscriptions and explicit authorization to use each account are prerequisites; Noria does not create them.
 
 ## 2. Create your local configuration
 
@@ -44,14 +44,13 @@ noria account login codex-personal
 For Claude Code:
 
 ```bash
-noria bridge setup
 noria account add claude-work --provider claude
 noria account login claude-work
 ```
 
 Each login opens the provider’s native interactive sign-in flow for an isolated Noria account profile. **You complete the sign-in yourself.** Noria does not import your normal client credentials. One account is enough to start; automatic failover needs another usable account for the same provider and requested model.
 
-`noria bridge setup` explicitly installs `@anthropic-ai/claude-agent-sdk@0.3.287` under Noria’s home for Claude quota reads. The bridge uses an experimental SDK method. It does not install dependencies while handling requests. See [accounts and authentication](/docs/accounts).
+Claude quota reads use a control-only process of the installed `claude` executable. Noria sends no user prompts or model calls for telemetry. The protocol remains experimental and may change with Claude Code updates. See [accounts and authentication](/docs/accounts).
 
 ## 4. Check availability
 

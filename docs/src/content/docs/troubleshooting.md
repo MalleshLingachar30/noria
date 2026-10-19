@@ -15,7 +15,7 @@ noria account list
 noria status
 ```
 
-`doctor` checks local prerequisites needed by your enabled account providers and private profile permissions. It does not validate a subscription, spend live model quota, or prove a real multi-account workflow. A Codex-only pool does not require the Claude SDK bridge.
+`doctor` checks local prerequisites needed by your enabled account providers and private profile permissions. It does not validate a subscription, spend live model quota, or prove a real multi-account workflow. Claude needs only its installed native executable for quota reading.
 
 Use the same `NORIA_HOME` in the daemon terminal and the client terminal. A different home means a different pool and local secret.
 
@@ -48,15 +48,14 @@ A login may need an interactive terminal and a browser. Complete this setup your
 ## Claude quota reads fail
 
 ```bash
-node --version
-npm --version
-noria bridge setup
+claude --version
+noria doctor
 noria quota refresh claude-work
 ```
 
-The embedded bridge needs Node and `@anthropic-ai/claude-agent-sdk@0.3.287` installed under the selected Noria home. The usage method is experimental; an upstream change, missing method, incompatible schema, unavailable rate-limit data, or failed account auth can prevent a snapshot.
+The reader starts the installed Claude executable with `CLAUDE_CONFIG_DIR` set to the isolated account profile and sends the experimental `get_usage` control request. An upstream change, incompatible schema, unavailable rate-limit data, or failed account auth can prevent a snapshot.
 
-Do not “repair” the bridge by installing an arbitrary latest SDK into the private directory. Use the explicit pinned setup and report a redacted compatibility error. Noria treats missing and partial telemetry as unknown, not as unlimited capacity.
+No SDK or Node.js setup is necessary. Check that Claude Code is installed and that this profile is signed in; report a redacted compatibility error when the internal control interface changes. Noria treats missing and partial telemetry as unknown, not as unlimited capacity.
 
 ## Every account is unavailable
 

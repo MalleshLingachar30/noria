@@ -14,7 +14,7 @@ Start `noria serve` in one terminal. In another terminal:
 
 ```bash
 noria run codex --
-# Or, after Claude bridge setup and account login:
+# Or, after Claude account login:
 noria run claude --
 ```
 
@@ -36,13 +36,7 @@ Claude uses native Messages requests against `http://127.0.0.1:43119/claude` by 
 
 Provider headers, beta flags, model, reasoning, tool messages, and streaming events remain part of the original protocol. The gateway does not translate Claude requests into Codex requests or fall back to an API billing account.
 
-The Claude quota bridge is separate from request forwarding. Set it up explicitly:
-
-```bash
-noria bridge setup
-```
-
-This needs Node.js and npm and installs `@anthropic-ai/claude-agent-sdk@0.3.287`. Its usage method is experimental. Read [accounts and authentication](/docs/accounts#claude-quota-bridge).
+Claude quota reads are separate from request forwarding. They launch the same installed native `claude` binary with its isolated upstream account profile and use the experimental `get_usage` control operation, with no Node.js or Agent SDK bridge. Read [accounts and authentication](/docs/accounts#claude-native-quota-reader).
 
 ## Session identity
 

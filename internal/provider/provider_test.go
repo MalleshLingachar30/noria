@@ -21,6 +21,10 @@ func TestMain(m *testing.M) {
 		codexFixture()
 		os.Exit(0)
 	}
+	if os.Getenv("GO_PROVIDER_FIXTURE") == "claude" {
+		claudeFixture()
+		os.Exit(0)
+	}
 	os.Exit(m.Run())
 }
 

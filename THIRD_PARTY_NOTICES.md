@@ -32,10 +32,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Separately installed components
 
-The optional Claude quota bridge explicitly installs the pinned Anthropic
-Claude Agent SDK through npm. That package is not bundled into Noria's binary
-and includes its own license. Native Codex and Claude Code clients are installed
-and licensed separately by their respective publishers.
+Native Codex and Claude Code clients are installed and licensed separately by
+their respective publishers. Noria invokes these installed executables directly
+for account quota readings, without distributing either client or an SDK.
 
 Documentation font licenses are distributed beside the corresponding font
 assets under `docs/public/fonts`.

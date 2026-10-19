@@ -94,12 +94,8 @@ noria env claude
 
 Prints POSIX shell configuration/instructions for intentional integration. **This output contains local gateway authentication.** Do not publish it or capture it in shared logs. Prefer the `run` wrapper for routine launches. See [native client integration](/docs/native-clients).
 
-## Install the Claude bridge
+## Claude usage reads
 
-```bash
-noria bridge setup
-```
-
-Explicitly installs `@anthropic-ai/claude-agent-sdk@0.3.287` under `NORIA_HOME/bridge` using npm. Requires Node.js, npm, and network access for installation. The bridge script is embedded in the Go binary; its SDK dependency is separate. There is no automatic network installation during request handling.
+No additional setup step is required beyond installing the native `claude` executable and completing `noria account login <id>`. Noria sends `get_usage` through Claude's control-only streaming interface. It does not require Node.js or an Agent SDK dependency for quota reads. The control protocol remains experimental.
 
 The pinned usage method is experimental and validated at runtime. This setup does not log into an account or send a model prompt.

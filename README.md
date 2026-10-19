@@ -27,10 +27,9 @@ noria run codex --
 
 Add another authorized account with a different local ID to create a failover pool. Only accounts matching the original provider and requested model are eligible.
 
-For Claude, Node.js and an explicit pinned SDK bridge installation are required:
+For Claude, only the installed native Claude Code executable is required for quota reads:
 
 ```bash
-noria bridge setup
 noria account add claude-work --provider claude
 noria account login claude-work
 noria quota refresh
@@ -38,7 +37,7 @@ noria quota refresh
 noria run claude --
 ```
 
-The bridge uses `@anthropic-ai/claude-agent-sdk@0.3.287` and an experimental usage method. Dependencies are installed only during explicit setup. The npm shim needs Node; direct native binaries are also available from Releases.
+Noria communicates with the installed `claude` binary using its experimental `get_usage` control request. There is no separate Node.js/SDK dependency for Claude quota reads. Node is only needed for the optional npm distribution shim; standalone binaries are available from Releases.
 
 ## The routing contract
 

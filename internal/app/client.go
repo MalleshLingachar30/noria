@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/amxv/noria/internal/config"
 	"github.com/amxv/noria/internal/model"
-	"github.com/amxv/noria/internal/provider"
 )
 
 // Native control processes must never inherit gateway routing or another
@@ -149,22 +147,4 @@ func clientEnv() []string {
 
 func codexOverrides(address string) []string {
 	return []string{"-c", `model_provider="noria"`, "-c", `model_providers.noria={name="Noria",base_url=` + strconv.Quote("http://"+address+"/codex/v1") + `,env_key="NORIA_GATEWAY_TOKEN",wire_api="responses",supports_websockets=true}`}
-}
-
-func bridge(home string, args []string, out io.Writer) error {
-	if len(args) == 0 || isHelp(args[0]) {
-		fmt.Fprintln(out, "Usage: noria bridge setup\nExplicitly install @anthropic-ai/claude-agent-sdk@0.3.287 in NORIA_HOME/bridge.\nRequires Node and npm; network access occurs only during this command.")
-		return nil
-	}
-	if len(args) != 1 || args[0] != "setup" {
-		return fmt.Errorf("usage: noria bridge setup")
-	}
-	if _, e := config.Load(home); e != nil {
-		return e
-	}
-	if e := provider.New(home).BridgeSetup(context.Background()); e != nil {
-		return e
-	}
-	fmt.Fprintln(out, "Claude quota bridge installed.")
-	return nil
 }

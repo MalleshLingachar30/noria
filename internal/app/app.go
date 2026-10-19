@@ -54,8 +54,6 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return doctor(home, args[1:], stdout)
 	case "env", "run":
 		return client(home, args[0], args[1:], stdout, stderr)
-	case "bridge":
-		return bridge(home, args[1:], stdout)
 	default:
 		return fmt.Errorf("unknown command %q (run noria --help)", args[0])
 	}
@@ -82,7 +80,6 @@ Commands:
   doctor                       check local prerequisites
   env codex|claude              print child-only routing configuration
   run codex|claude -- [args]    run a client through Noria
-  bridge setup                 install the pinned Claude quota SDK
 
 Use <command> --help for command details. NORIA_HOME defaults to ~/.noria.
 Account login is explicit. Noria never imports your existing credentials.

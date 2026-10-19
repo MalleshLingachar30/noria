@@ -10,7 +10,7 @@ Noria is distributed as `@amxv/noria` through npm and native binaries through [G
 
 ## Prepare a release
 
-Review the application and documentation together. Verify that help output, SDK pin, client wrapper behavior, and transport limitations match the implementation. Do not claim live account testing from fake-upstream results.
+Review the application and documentation together. Verify that help output, native quota control behavior, client wrapper behavior, and transport limitations match the implementation. Do not claim live account testing from fake-upstream results.
 
 Update the [changelog](/docs/changelog) with the release date and actual behavior, then run checks:
 
@@ -21,12 +21,12 @@ make docs-check
 make docs-build
 ```
 
-Docs validation is serial. Review supported platform builds and the package’s contents before publishing. A native binary embeds the Claude bridge script, but users still explicitly install the pinned SDK with `noria bridge setup`.
+Docs validation is serial. Review supported platform builds and the package’s contents before publishing. The Go binary implements Claude's `get_usage` control request directly, with no additional runtime dependency.
 
-After maintainer review, commit and push the release changes, then create and push the version tag. For v0.1.0:
+After maintainer review, commit and push the release changes, then create and push the version tag. For v0.1.1:
 
 ```bash
-make release-tag VERSION=0.1.0
+make release-tag VERSION=0.1.1
 ```
 
 This target creates and pushes a tag; it is a publishing action, not a dry run. The `v*` tag triggers GitHub Actions to run the release pipeline and publish native assets and npm. Maintainers should follow the repository’s release skill/checklist and verify the workflow’s result rather than assume tag creation means publication succeeded.
@@ -60,7 +60,7 @@ npm install -g @amxv/noria
 
 The Node shim invokes the packaged native binary. Postinstall downloads it from GitHub Releases and can fall back to a local Go build if the download fails and Go is available. Download and installation failures should remain visible rather than masquerading as a successful setup.
 
-Native Codex/Claude tools are separate prerequisites. npm installation does not sign in to provider accounts. Claude quota reads need Node, npm, and explicit installation of SDK 0.3.287 under the Noria home. No SDK installation runs on a model-request path.
+Native Codex/Claude tools are separate prerequisites. npm installation does not sign in to provider accounts. Claude quota reads use the native `claude` binary directly. Node is needed for the npm distribution shim only; direct native binaries have no Node or Agent SDK dependency.
 
 ## Documentation deployment
 

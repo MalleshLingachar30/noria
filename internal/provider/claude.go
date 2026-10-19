@@ -1,12 +1,11 @@
 package provider
 
 import (
+	"bufio"
 	"context"
-	_ "embed"
 	"encoding/json"
 	"errors"
-	"os"
-	"path/filepath"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -14,61 +13,95 @@ import (
 	"github.com/amxv/noria/internal/model"
 )
 
-const SDKVersion = "0.3.287"
-
-//go:embed usage-bridge.mjs
-var usageBridge string
-
-func (m *Manager) BridgeSetup(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
-	defer cancel()
-	dir := filepath.Join(m.home, "bridge")
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return errors.New("cannot create Claude bridge directory")
-	}
-	real, err := filepath.EvalSymlinks(dir)
-	if err != nil {
-		return errors.New("cannot resolve Claude bridge directory")
-	}
-	root, err := filepath.EvalSymlinks(m.home)
-	if err != nil || real != filepath.Join(root, "bridge") {
-		return errors.New("Claude bridge directory must not be a symlink")
-	}
-	_ = os.Chmod(dir, 0700)
-	// Setup is the only path permitted to install dependencies. Never invoked
-	// automatically by Refresh, Credentials, or an HTTP request.
-	cmd := nativeCommand(ctx, cleanEnv(dir, "claude"), "npm", "install", "--prefix", dir, "--ignore-scripts", "--no-audit", "--no-fund", "--save-exact", "@anthropic-ai/claude-agent-sdk@"+SDKVersion)
-	cmd.Dir = dir
-	if cmd.Run() != nil {
-		return errors.New("Claude bridge installation failed; verify npm/network and retry bridge setup")
-	}
-	return nil
-}
-
+// claudeQuota talks to the installed native Claude Code executable over the
+// same stream-json control channel used by the Agent SDK. The SDK's get_usage
+// method sends a control_request with subtype get_usage; its Node wrapper is
+// not needed. This remains an experimental Claude control protocol: fail
+// closed on a changed schema, never send a prompt or silently spend tokens.
 func (m *Manager) claudeQuota(ctx context.Context, a model.Account, p string) (model.Snapshot, error) {
 	started := time.Now()
-	sdkDir := filepath.Join(m.home, "bridge")
-	if _, err := os.Stat(filepath.Join(sdkDir, "node_modules", "@anthropic-ai", "claude-agent-sdk", "package.json")); err != nil {
-		return model.Snapshot{}, errors.New("Claude usage bridge missing; run noria bridge setup")
-	}
-	claude, err := lookPath(m.claudeCommand)
-	if err != nil {
-		return model.Snapshot{}, errors.New("Claude CLI unavailable; install it before quota refresh")
-	}
-	claude, err = filepath.Abs(claude)
-	if err != nil {
-		return model.Snapshot{}, errors.New("cannot resolve Claude CLI")
-	}
-	cmd := nativeCommand(ctx, cleanEnv(p, "claude"), m.nodeCommand, "--input-type=module", "-", sdkDir, claude)
-	defer killProcess(cmd)
+	cmd := nativeCommand(ctx, append(cleanEnv(p, "claude"),
+		"CLAUDE_CODE_ENTRYPOINT=sdk-go", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1"),
+		m.claudeCommand,
+		"--output-format", "stream-json", "--verbose",
+		"--input-format", "stream-json", "--setting-sources=",
+		"--tools", "", "--no-session-persistence")
 	cmd.Dir = p
-	cmd.Stdin = strings.NewReader(usageBridge)
-	out := &boundedBuffer{max: 1 << 20}
-	cmd.Stdout = out
-	if cmd.Run() != nil {
-		return model.Snapshot{}, errors.New("Claude usage bridge failed or timed out; verify native login and pinned SDK with bridge setup")
+	input, err := cmd.StdinPipe()
+	if err != nil {
+		return model.Snapshot{}, errors.New("cannot open Claude control input")
 	}
-	return parseClaude(a.ID, out.data, started)
+	output, err := cmd.StdoutPipe()
+	if err != nil {
+		return model.Snapshot{}, errors.New("cannot open Claude control output")
+	}
+	if err := cmd.Start(); err != nil {
+		return model.Snapshot{}, errors.New("cannot start Claude Code; install the native claude executable")
+	}
+	defer func() { _ = input.Close(); killProcess(cmd); _ = cmd.Wait() }()
+
+	// Initialize the control session without submitting a user message. Read
+	// the successful handshake before asking for usage, matching the CLI's
+	// control protocol rather than relying on input queue ordering.
+	encoder := json.NewEncoder(input)
+	if err := encoder.Encode(map[string]any{
+		"request_id": "noria_initialize", "type": "control_request",
+		"request": map[string]string{"subtype": "initialize"},
+	}); err != nil {
+		return model.Snapshot{}, errors.New("Claude control initialization write failed")
+	}
+	reader := bufio.NewScanner(output)
+	reader.Buffer(make([]byte, 4096), 1<<20)
+	initialized := false
+	for reader.Scan() {
+		var message struct {
+			Type     string `json:"type"`
+			Response struct {
+				RequestID string          `json:"request_id"`
+				Subtype   string          `json:"subtype"`
+				Response  json.RawMessage `json:"response"`
+			} `json:"response"`
+		}
+		if json.Unmarshal(reader.Bytes(), &message) != nil {
+			return model.Snapshot{}, errors.New("invalid Claude control message")
+		}
+		if message.Type != "control_response" {
+			// The quota reader must not initiate model turns or tool calls. A
+			// system initialization message is fine, but user/model events are not.
+			if message.Type == "assistant" || message.Type == "user" || message.Type == "result" || message.Type == "control_request" {
+				return model.Snapshot{}, errors.New("unexpected Claude activity during passive quota read")
+			}
+			continue
+		}
+		if message.Response.Subtype != "success" {
+			return model.Snapshot{}, errors.New("Claude control request was rejected")
+		}
+		switch message.Response.RequestID {
+		case "noria_initialize":
+			initialized = true
+			// Behaviors are large local usage statistics Noria does not need.
+			// The native request parameter preserves the quota fields while
+			// avoiding unnecessary work and oversized control responses.
+			if err := encoder.Encode(map[string]any{
+				"request_id": "noria_usage", "type": "control_request",
+				"request": map[string]any{"subtype": "get_usage", "skip_behaviors": true},
+			}); err != nil {
+				return model.Snapshot{}, errors.New("Claude control usage write failed")
+			}
+		case "noria_usage":
+			if !initialized {
+				return model.Snapshot{}, errors.New("Claude usage response preceded initialization")
+			}
+			if len(message.Response.Response) == 0 {
+				return model.Snapshot{}, errors.New("Claude usage control returned no data")
+			}
+			return parseClaude(a.ID, message.Response.Response, started)
+		}
+	}
+	if ctx.Err() != nil {
+		return model.Snapshot{}, fmt.Errorf("Claude quota read cancelled: %w", ctx.Err())
+	}
+	return model.Snapshot{}, errors.New("Claude usage control closed or changed protocol")
 }
 
 func parseClaude(id string, data []byte, now time.Time) (model.Snapshot, error) {

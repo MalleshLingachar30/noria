@@ -192,11 +192,8 @@ func doctor(home string, args []string, out io.Writer) error {
 			continue
 		}
 		needed[a.Provider] = true
-		if a.Provider == "claude" {
-			needed["node"], needed["npm"] = true, true
-		}
 	}
-	for _, name := range []string{"codex", "claude", "node", "npm"} {
+	for _, name := range []string{"codex", "claude"} {
 		if !needed[name] {
 			continue
 		}
@@ -218,25 +215,13 @@ func doctor(home string, args []string, out io.Writer) error {
 		fmt.Fprintln(out, "gateway secret: invalid or missing")
 		problems++
 	}
-	claudeNeeded := false
 	for _, a := range c.Accounts {
-		if a.Provider == "claude" && a.Enabled {
-			claudeNeeded = true
-		}
 		st, err := os.Stat(a.Profile)
 		if err != nil || !st.IsDir() || runtime.GOOS != "windows" && st.Mode().Perm()&0077 != 0 {
 			fmt.Fprintln(out, "profile", a.ID+": missing or unsafe permissions")
 			problems++
 		} else {
 			fmt.Fprintln(out, "profile", a.ID+": isolated")
-		}
-	}
-	if claudeNeeded {
-		if _, err := os.Stat(filepath.Join(home, "bridge", "node_modules", "@anthropic-ai", "claude-agent-sdk", "package.json")); err != nil {
-			fmt.Fprintln(out, "Claude quota bridge: run noria bridge setup")
-			problems++
-		} else {
-			fmt.Fprintln(out, "Claude quota bridge: installed (runtime schema checked on quota read)")
 		}
 	}
 	if problems > 0 {

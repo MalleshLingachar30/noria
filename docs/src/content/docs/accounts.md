@@ -50,16 +50,15 @@ Five-hour and weekly windows are recognized by duration, not assumed array order
 
 The provider interface is described in the [Codex app-server documentation](https://developers.openai.com/codex/app-server).
 
-## Claude quota bridge
+## Claude native quota reader
 
 ```bash
-noria bridge setup
 noria quota refresh claude-work
 ```
 
-The Go binary embeds a small JavaScript bridge. Node.js and the pinned `@anthropic-ai/claude-agent-sdk@0.3.287` dependency are also required. `bridge setup` performs the explicit installation under `NORIA_HOME/bridge`.
+Noria launches the installed `claude` executable for the specified isolated `CLAUDE_CONFIG_DIR` and sends `initialize` and `get_usage` JSON control requests. No Node.js installation or separate Agent SDK package is required for this reader.
 
-The bridge calls the SDK handle’s `usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET()` method with a parked prompt iterator. No user turn is submitted for the usage read. This method is experimental and can change or be unavailable; Noria validates the returned snapshot and treats missing telemetry as unknown. It is not a stable, dependency-free Go API.
+This is the internal control operation behind the Agent SDK's experimental usage method. No user turn is submitted for a usage read. The control protocol is **not a documented stable CLI interface**; Noria validates responses, rejects unexpected activity, and treats missing telemetry as unknown.
 
 Both five-hour and seven-day utilization are read independently. Partial snapshots do not invent the missing window. If quota reads fail, run `noria doctor` and check [troubleshooting](/docs/troubleshooting).
 

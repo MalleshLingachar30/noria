@@ -3,8 +3,15 @@ title: Changelog
 description: Release notes and validation boundaries for Noria.
 order: 11
 category: Development
-summary: The initial v0.1.0 release, dated October 20, 2026.
+summary: Noria v0.1.1 removes the Claude Node SDK dependency.
 ---
+
+## 0.1.1 · 2026-10-20
+
+- Claude quota reads now invoke the user's installed `claude` executable directly using its streaming JSON `initialize` and `get_usage` control requests.
+- Removed the Agent SDK/Node bridge, `noria bridge setup`, its extra installation step, and Node/npm checks from native runtime prerequisites.
+- Kept isolated per-account Claude authentication, no-prompt quota readings, fail-closed schema validation, and bounded process lifetimes. The control protocol remains experimental.
+- Node.js remains part of the optional npm-based installer/shim, not the standalone Go binary or Claude quota reader.
 
 ## 0.1.0 · 2026-10-20
 
