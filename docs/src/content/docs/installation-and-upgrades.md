@@ -53,4 +53,4 @@ Open requests defer replacement; idle streaming connections reconnect after a sa
 
 Update `VERSION` and the changelog, run Go/race/native-client tests, verify both macOS app architectures, and check/build docs serially. Tags trigger CI, six native binaries, two macOS archives, checksums, and direct native-install tests. Verify results rather than equating a tag push with release completion.
 
-Docs auto-deploy from `main` using the Vercel project's `docs` root. Do not include private runtime data in a package or deployment.
+Docs auto-deploy from `main` through a GitHub Action that asks Vercel to build the exact pushed Git commit from the project's `docs` root. This is independent of the app installer and does not require a runtime package manager. Do not include private runtime data in a package or deployment.

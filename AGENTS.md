@@ -23,3 +23,5 @@ Code files should stay below 1000 lines. Add tests for lifecycle idempotence, co
 Use the Zodex-style checksum-verified CLI download/extract path with an ad-hoc signed macOS app. Never disable Gatekeeper, clear quarantine, or claim Developer ID notarization. Browser downloads and managed policies may differ. macOS CLI and Noria.app are sibling artifacts.
 
 Update VERSION and the manual changelog, verify CI, then push the release tag. Confirm six binaries, two macOS archives, checksums, native installer smoke tests, and docs deployment. Never publish from a concurrently changing checkout or discard someone else's worktree changes.
+
+The docs site is a separate Bun/Astro workspace. Pushing changed documentation to `main` triggers `.github/workflows/docs-deploy.yml`, which uses the scoped Git source of that commit through Vercel's REST API. Keep deployment secrets in GitHub Actions, never the repository.

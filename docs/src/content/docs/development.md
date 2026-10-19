@@ -68,4 +68,4 @@ make docs-build
 
 Never run Astro check and build concurrently in the same workspace. Test responsive navigation, theme switching, code copying, search, article links, and `/docs/<slug>.md` raw Markdown routes after a production build.
 
-The canonical site is `https://noria.ashray.xyz`. Vercel should use `docs` as its Root Directory; the site builds into `docs/dist`. See [installation and upgrades](/docs/installation-and-upgrades) for publishing responsibilities.
+The canonical site is `https://noria.ashray.xyz`. Vercel uses `docs` as its Root Directory; the site builds into `docs/dist`. Pushing docs changes to `main` triggers the `docs-deploy` GitHub Action, which requests a production deployment of that exact commit through Vercel's Git deployment API. See [installation and upgrades](/docs/installation-and-upgrades) for publishing responsibilities.

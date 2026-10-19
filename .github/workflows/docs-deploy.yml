@@ -1,0 +1,29 @@
+name: docs-deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "scripts/deploy_docs.py"
+      - ".github/workflows/docs-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: noria-docs-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy exact commit to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          NORIA_DEPLOY_COMMIT: ${{ github.sha }}
+        run: python3 scripts/deploy_docs.py
