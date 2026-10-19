@@ -24,4 +24,4 @@ Use the Zodex-style checksum-verified CLI download/extract path with an ad-hoc s
 
 Update VERSION and the manual changelog, verify CI, then push the release tag. Confirm six binaries, two macOS archives, checksums, native installer smoke tests, and docs deployment. Never publish from a concurrently changing checkout or discard someone else's worktree changes.
 
-The docs site is a separate Bun/Astro workspace. Pushing changed documentation to `main` triggers `.github/workflows/docs-deploy.yml`, which uses the scoped Git source of that commit through Vercel's REST API. Keep deployment secrets in GitHub Actions, never the repository.
+The docs site is a separate Bun/Astro workspace connected to Vercel directly through GitHub. `docs/vercel.json` enables `main` deployments and invokes `docs/scripts/should-build.mjs` as the ignored-build step. It builds for `docs/**` and either native root installer, but skips Go/code-only commits. Keep this logic tested with `cd docs && bun run test:deployment`. Do not create redundant GitHub deployment actions or store Vercel CLI tokens in repository secrets.
