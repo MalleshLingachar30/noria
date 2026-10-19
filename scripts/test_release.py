@@ -1,5 +1,6 @@
 """Native release metadata tests requiring only Python's standard library."""
 from pathlib import Path
+import json
 import sys
 import tempfile
 import unittest
@@ -36,6 +37,14 @@ class ReleaseTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/release.yml").read_text()
         for phrase in ("npm-publish", "npm install", "npm publish", "setup-node", "NODE_AUTH_TOKEN"):
             self.assertNotIn(phrase, workflow)
+
+    def test_vercel_owns_docs_deployments_without_repository_credentials(self):
+        """Deployments use the Vercel GitHub integration, not Actions secrets."""
+        config = json.loads((ROOT / "docs/vercel.json").read_text())
+        self.assertEqual(config["ignoreCommand"], "node scripts/should-build.mjs")
+        self.assertEqual(config["git"]["deploymentEnabled"], {"main": True, "*": False})
+        self.assertFalse((ROOT / ".github/workflows/docs-deploy.yml").exists())
+        self.assertFalse((ROOT / "scripts/deploy_docs.py").exists())
 
 
 if __name__ == "__main__":
