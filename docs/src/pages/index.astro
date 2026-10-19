@@ -1,160 +1,111 @@
 ---
-import { getCollection } from "astro:content";
 import BaseLayout from "zuedocs/layouts/BaseLayout.astro";
 import { primaryNav, siteConfig } from "../data/docs";
-
-const docs = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
-
-const proofPoints = [
-  {
-    title: "Go binary first",
-    body: "Keep the runtime simple: one Go entrypoint, internal command logic, and build-time version metadata."
-  },
-  {
-    title: "npm install path",
-    body: "Ship a tiny Node shim that downloads the right GitHub release binary after npm install."
-  },
-  {
-    title: "Release automation included",
-    body: "Tag a version and let GitHub Actions build platform binaries, publish a release, and publish npm."
-  },
-  {
-    title: "Docs from day one",
-    body: "Use the embedded ZueDocs site for quickstarts, command reference, release notes, and operator guidance."
-  }
-];
-
-const workflows = [
-  "Create a repository from the template, then initialize the command, module, npm, release, and docs identity in one pass.",
-  "Keep docs next to the CLI so every future command has a guide, reference page, and maintenance notes.",
-  "Use make targets locally for formatting, tests, vetting, builds, and multi-platform release binaries.",
-  "Edit the changelog, commit it, and push a version tag so GitHub Actions can publish the release."
-];
+import "../styles/global.css";
 ---
 
 <BaseLayout
-  title={`${siteConfig.name} | ${siteConfig.strapline}`}
+  title="Noria | Keep your agents in flow"
   description={siteConfig.description}
   siteConfig={siteConfig}
   primaryNav={primaryNav}
 >
-  <section class="hero shell">
-    <div class="hero__copy">
-      <p class="section-label">Go CLI template</p>
-      <h1>Start a Go command-line app with npm distribution, releases, and docs already wired up.</h1>
-      <p class="hero__lede">
-        This template gives future CLIs a practical baseline: a small Go command surface,
-        a native-binary npm install wrapper, GitHub release automation, and a ZueDocs-powered
-        site that can grow with the project.
-      </p>
-      <p class="hero__annotation">
-        Replace the sample command, update project identity, write your first guides,
-        and keep shipping from one repo.
-      </p>
-      <div class="hero__actions">
-        <a class="button button--solid" href="/docs/quickstart">Start with the quickstart</a>
-        <a class="button button--ghost" href="/docs">Browse all docs</a>
+  <a class="skip-link" href="#content">Skip to content</a>
+  <div id="content" class="noria-home">
+    <section class="shell noria-hero" aria-labelledby="hero-title">
+      <div class="noria-hero__copy">
+        <p class="noria-eyebrow"><span aria-hidden="true">◉</span> Local account routing / Codex + Claude Code</p>
+        <h1 id="hero-title">Keep your<br />agents in <em>flow.</em></h1>
+        <p class="noria-hero__promise">One session. One account.<br />Until it is time to switch.</p>
+        <p class="noria-hero__lede">Noria pools your authorized Codex and Claude accounts on your machine. Sessions stay put until a limit requires a switch. New work goes where remaining allowance and reset clocks make sense.</p>
+        <div class="noria-actions">
+          <a class="button button--solid" href="/docs/quickstart">Install Noria <span aria-hidden="true">↗</span></a>
+          <a class="noria-text-link" href="/docs/scheduling">Understand the routing <span aria-hidden="true">→</span></a>
+        </div>
+        <p class="noria-hero__footnote">v0.1.0 · Open source · No paid fallback or model swaps</p>
       </div>
-    </div>
-    <aside class="hero__panel">
-      <p class="hero__panel-label">Starter session</p>
-      <ul class="hero__signal-list">
-        <li>Rename the command from mycli to your real binary name.</li>
-        <li>Replace starter handlers with your CLI behavior.</li>
-        <li>Keep docs updated as command groups are added.</li>
-      </ul>
-      <div class="hero__terminal">
-        <span>$ make check</span>
-        <span>$ make build</span>
-        <span>$ make docs-dev</span>
-        <span>$ make release-tag VERSION=0.2.0</span>
-      </div>
-    </aside>
-  </section>
 
-  <section class="shell section-grid">
-    <div class="section-heading">
-      <p class="section-label">Why it exists</p>
-      <h2>A reusable baseline for CLIs that need more than a single binary.</h2>
-      <p>
-        Most internal and public CLIs need the same supporting pieces: tests, release builds,
-        install scripts, package metadata, contributor notes, and a docs site. This template
-        keeps those pieces ready so new tools can focus on the command behavior.
-      </p>
-    </div>
-    <div class="proof-grid">
-      {proofPoints.map((item) => (
-        <article class="proof-card">
-          <h3>{item.title}</h3>
-          <p>{item.body}</p>
-        </article>
-      ))}
-    </div>
-  </section>
+      <div class="noria-workbench">
+        <div class="noria-terminal" aria-label="Example Codex setup commands">
+          <div class="noria-terminal__bar"><span aria-hidden="true">● ● ●</span><span>your terminal</span><span>01</span></div>
+          <pre><code><span class="noria-terminal__comment"># Install the local router</span>
+<span class="noria-terminal__prompt">$</span> npm install -g @amxv/noria
+<span class="noria-terminal__prompt">$</span> noria init
 
-  <section class="shell split-section">
-    <div>
-      <p class="section-label">Built for</p>
-      <h2>Small Go CLIs that should be easy to install, document, and release.</h2>
-    </div>
-    <div class="stack-list">
-      {workflows.map((item) => (
-        <article class="stack-list__item">
-          <p>{item}</p>
-        </article>
-      ))}
-    </div>
-  </section>
+<span class="noria-terminal__comment"># Sign in to an isolated account</span>
+<span class="noria-terminal__prompt">$</span> noria account add work --provider codex
+<span class="noria-terminal__prompt">$</span> noria account login work
+<span class="noria-terminal__prompt">$</span> noria quota refresh
 
-  <section class="shell capability-band">
-    <div class="capability-band__intro">
-      <p class="section-label">Included pieces</p>
-      <h2>One repo with the app, distribution path, and documentation shell.</h2>
-    </div>
-    <div class="capability-band__grid">
-      <div>
-        <p class="capability-title">Go app</p>
-        <p>Entrypoint, command handlers, tests, version plumbing, and make targets.</p>
+<span class="noria-terminal__comment"># Start the gateway in this terminal</span>
+<span class="noria-terminal__prompt">$</span> noria serve</code></pre>
+        </div>
+        <div class="noria-session" aria-label="Illustrative session routing">
+          <p class="noria-eyebrow">Session affinity / illustrated</p>
+          <div class="noria-session__path"><span>Session 01</span><span aria-hidden="true">→</span><strong>Account A</strong></div>
+          <div class="noria-session__requests" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <p>Every request stays here while this account can serve.</p>
+        </div>
       </div>
-      <div>
-        <p class="capability-title">npm wrapper</p>
-        <p>A Node shim and postinstall script for installing native release binaries.</p>
-      </div>
-      <div>
-        <p class="capability-title">Release workflow</p>
-        <p>GitHub Actions build matrix, release asset upload, and npm publish flow.</p>
-      </div>
-      <div>
-        <p class="capability-title">ZueDocs site</p>
-        <p>Astro routes, docs collection, shared layouts, markdown source routes, and starter guides.</p>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <section class="shell docs-teaser">
-    <div class="section-heading">
-      <p class="section-label">Docs map</p>
-      <h2>Use the starter guides to customize the CLI and keep the docs site useful.</h2>
-      <p>
-        The docs cover bootstrap, command customization, release packaging, command reference,
-        and maintenance notes for the embedded ZueDocs site.
-      </p>
-    </div>
-    <div class="docs-teaser__grid">
-      {docs.map((entry) => (
-        <a class="docs-teaser__card" href={`/docs/${entry.id}`}>
-          <span>{entry.data.category}</span>
-          <h3>{entry.data.title}</h3>
-          <p>{entry.data.summary ?? entry.data.description}</p>
-        </a>
-      ))}
-    </div>
-  </section>
+    <section class="shell noria-principles" aria-label="Three routing principles">
+      <article><span class="noria-number">01 / Stay</span><h2>Keep the warm path.</h2><p>A healthy session keeps its account. A better score or another account’s reset does not move it.</p></article>
+      <article><span class="noria-number">02 / Place</span><h2>Use the next window well.</h2><p>New sessions weigh independent five-hour and weekly windows, expected usage, and work already assigned.</p></article>
+      <article><span class="noria-number">03 / Continue</span><h2>Switch at a real limit.</h2><p>Retry the pending request on another eligible account before output starts. Keep the same model and request.</p></article>
+    </section>
 
-  <section class="shell closing-note">
-    <p>
-      Use this template when the next CLI should start with releases, npm installation,
-      and docs already in place.
-    </p>
-  </section>
+    <section class="shell noria-quota" aria-labelledby="quota-title">
+      <div class="noria-section-heading">
+        <p class="noria-eyebrow">The next account is a scheduling decision.</p>
+        <h2 id="quota-title">More headroom is only<br /><em>part of the picture.</em></h2>
+        <p>Five-hour and weekly allowances expire independently. A little weekly quota that resets soon can be more useful now than a larger allowance with days left. Noria also accounts for reservations and load.</p>
+      </div>
+      <figure class="noria-ledger">
+        <figcaption><strong>An illustrative pool</strong><span>Example values · remaining quota</span></figcaption>
+        <div class="noria-ledger__scroll" role="region" aria-label="Example quota pool" tabindex="0">
+          <table>
+            <thead><tr><th scope="col">Account</th><th scope="col">Five-hour window</th><th scope="col">Weekly window</th><th scope="col">Placement</th></tr></thead>
+            <tbody>
+              <tr class="noria-ledger__preferred"><th scope="row"><span class="noria-account">A</span></th><td><strong>72% left</strong><span>resets in 3 hours</span></td><td><strong>5% left</strong><span>resets in 18 minutes</span></td><td><span class="noria-tag">New session candidate</span></td></tr>
+              <tr><th scope="row"><span class="noria-account">B</span></th><td><strong>84% left</strong><span>resets in 4 hours</span></td><td><strong>61% left</strong><span>resets in 4 days</span></td><td>Existing sessions stay</td></tr>
+              <tr><th scope="row"><span class="noria-account">C</span></th><td><strong>90% left</strong><span>resets in 2 hours</span></td><td><strong>Exhausted</strong><span>resets in 6 hours</span></td><td>Weekly limit blocks use</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="noria-ledger__note">A may suit a new session if its expected usage and current reservations allow. B keeps its healthy sessions. C must clear its weekly limit first. This is an explanation, not live telemetry or a promised selection.</p>
+      </figure>
+    </section>
+
+    <section class="shell noria-cache" aria-labelledby="cache-title">
+      <div class="noria-cache__diagram" aria-label="A session changes accounts only after an applicable limit">
+        <p class="noria-eyebrow">A session’s route</p>
+        <div class="noria-route-step"><span class="noria-route-step__marker">A</span><div><strong>Start. Stay. Keep working.</strong><p>Account A’s cache remains account-local.</p></div></div>
+        <div class="noria-route-divider"><span>Applicable limit reached</span><span aria-hidden="true">↓</span></div>
+        <div class="noria-route-step"><span class="noria-route-step__marker">B</span><div><strong>Retry. Warm. Stay.</strong><p>The pending request continues on B when safe.</p></div></div>
+        <p class="noria-cache__caption">No automatic return to A when its allowance resets.</p>
+      </div>
+      <div class="noria-section-heading">
+        <p class="noria-eyebrow">Cache belongs to the account.</p>
+        <h2 id="cache-title">Let a good<br /><em>session settle in.</em></h2>
+        <p>Hard affinity keeps requests on the same account while it is usable. After a necessary switch, the new account’s cache warms through normal work. Noria does not migrate caches or transcripts.</p>
+        <p>The tradeoff is deliberate: a single healthy session will not use every account’s spare quota. Run independent sessions to make use of a wider pool.</p>
+        <a class="noria-text-link" href="/docs/security-and-limitations">Read the limits before you start <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+
+    <section class="shell noria-native" aria-labelledby="native-title">
+      <div><p class="noria-eyebrow">Your tools. A local route.</p><h2 id="native-title">Same native clients.<br />A little more continuity.</h2><p>Go gateway. Native Responses and Messages protocols. Account profiles isolated under <code>~/.noria</code>. Your normal client history and settings stay in place.</p><p class="noria-release-note">Native clients are required. Claude quota reads also need Node and the pinned SDK bridge. <a href="/docs/accounts#claude-quota-bridge">Set up the Claude bridge →</a></p></div>
+      <div class="noria-native__commands"><p class="noria-eyebrow">In another terminal</p><pre><code>noria run codex --
+noria run claude --</code></pre><a class="noria-text-link" href="/docs/native-clients">Set up your client <span aria-hidden="true">→</span></a></div>
+    </section>
+
+    <section class="shell noria-start" aria-labelledby="start-title">
+      <p class="noria-eyebrow">Ready when you are.</p>
+      <h2 id="start-title">Give your next session<br /><em>room to keep going.</em></h2>
+      <div class="noria-actions"><a class="button button--solid" href="/docs/quickstart">Follow the quickstart <span aria-hidden="true">↗</span></a><a class="noria-text-link" href="https://github.com/amxv/noria/releases">Download a binary <span aria-hidden="true">→</span></a></div>
+      <p>Sign in yourself. Start the local gateway. Keep working.</p>
+      <p class="noria-release-note" style="margin-inline:auto">When every matching account is exhausted, Noria reports unavailability. It cannot create extra quota or splice a partially delivered stream. Live multi-account use has not yet been validated. <a href="/docs/troubleshooting#compatibility-and-validation">Read the release limits →</a></p>
+    </section>
+  </div>
 </BaseLayout>

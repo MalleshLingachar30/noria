@@ -32,23 +32,36 @@ func TestRunVersion(t *testing.T) {
 		t.Fatalf("Run returned error: %v", err)
 	}
 
-	if !strings.Contains(out.String(), "mycli ") {
+	if !strings.Contains(out.String(), "noria ") {
 		t.Fatalf("unexpected version output: %q", out.String())
 	}
 }
 
-func TestRunHello(t *testing.T) {
+func TestAccountSetupAndClientIsolation(t *testing.T) {
+	t.Setenv("NORIA_HOME", t.TempDir())
 	var out bytes.Buffer
 	var errBuf bytes.Buffer
-
-	err := Run([]string{"hello", "Codex"}, &out, &errBuf)
-	if err != nil {
-		t.Fatalf("Run returned error: %v", err)
+	for _, args := range [][]string{{"init"}, {"account", "add", "work", "--provider", "codex"}, {"account", "add", "personal", "--provider", "claude", "--model", "claude-test"}, {"account", "disable", "personal"}, {"account", "list"}} {
+		if err := Run(args, &out, &errBuf); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
 	}
-
-	got := out.String()
-	if got != "Hello, Codex!\n" {
-		t.Fatalf("unexpected output: %q", got)
+	if !strings.Contains(out.String(), "personal\tclaude\tenabled=false") {
+		t.Fatal(out.String())
+	}
+	out.Reset()
+	if err := Run([]string{"env", "codex"}, &out, &errBuf); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "NORIA_GATEWAY_TOKEN=") || !strings.Contains(out.String(), "codex() {") || strings.Contains(out.String(), "export CODEX_HOME=") {
+		t.Fatal("missing command-local client config or replaced client home")
+	}
+	out.Reset()
+	if err := Run([]string{"env", "claude"}, &out, &errBuf); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "ENABLE_TOOL_SEARCH='true'") || !strings.Contains(out.String(), "/claude'") {
+		t.Fatal(out.String())
 	}
 }
 

@@ -2,18 +2,18 @@ SHELL := /bin/bash
 
 GO ?= go
 GOFMT ?= gofmt
-BIN_NAME ?= mycli
-CMD_NAME ?= mycli
+BIN_NAME ?= noria
+CMD_NAME ?= noria
 CMD_PATH ?= ./cmd/$(CMD_NAME)
 DIST_DIR ?= dist
 BIN_PATH ?= $(DIST_DIR)/$(BIN_NAME)
 VERSION ?= $(shell node -p "require('./package.json').version" 2>/dev/null)
-LDFLAGS ?= -s -w -X github.com/amxv/go-cli-template/internal/buildinfo.Version=$(if $(VERSION),$(VERSION),dev)
+LDFLAGS ?= -s -w -X github.com/amxv/noria/internal/buildinfo.Version=$(if $(VERSION),$(VERSION),dev)
 
-.PHONY: help bootstrap fmt test vet lint check docs-install docs-dev docs-check docs-build docs-preview build build-all install-local clean release-tag
+.PHONY: help bootstrap fmt test test-race vet lint check docs-install docs-dev docs-check docs-build docs-preview build build-all install-local clean release-tag
 
 help:
-	@echo "go-cli-template command runner"
+	@echo "Noria development and release commands"
 	@echo ""
 	@echo "Targets:"
 	@echo "  make bootstrap    - initialize CLI, module, repo, npm, docs, and license identity"
@@ -27,9 +27,9 @@ help:
 	@echo "  make docs-check    - validate the Astro/ZueDocs site"
 	@echo "  make docs-build    - build the Astro/ZueDocs site"
 	@echo "  make docs-preview  - preview the built Astro/ZueDocs site"
-	@echo "  make build        - build local binary to dist/mycli"
+	@echo "  make build        - build local binary to dist/noria"
 	@echo "  make build-all    - build release binaries for 6 target platforms"
-	@echo "  make install-local - install CLI to ~/.local/bin/mycli"
+	@echo "  make install-local - install CLI to ~/.local/bin/noria"
 	@echo "  make clean        - remove dist artifacts"
 	@echo "  make release-tag VERSION=x.y.z - create and push a tag for GitHub Actions"
 
@@ -41,6 +41,9 @@ fmt:
 
 test:
 	@$(GO) test ./...
+
+test-race:
+	@$(GO) test -race ./...
 
 vet:
 	@$(GO) vet ./...
@@ -71,13 +74,13 @@ build:
 
 build-all:
 	@mkdir -p $(DIST_DIR)
-	@for target in "darwin amd64" "darwin arm64" "linux amd64" "linux arm64" "windows amd64"; do \
+	@set -e; for target in "darwin amd64" "darwin arm64" "linux amd64" "linux arm64" "windows amd64" "windows arm64"; do \
 		set -- $$target; \
 		GOOS=$$1; GOARCH=$$2; \
 		EXT=""; \
 		if [ "$$GOOS" = "windows" ]; then EXT=".exe"; fi; \
 		echo "Building $(BIN_NAME) for $$GOOS/$$GOARCH"; \
-		CGO_ENABLED=0 GOOS=$$GOOS GOARCH=$$GOARCH $(GO) build -trimpath -ldflags="$(LDFLAGS)" -o "$(DIST_DIR)/$(BIN_NAME)_$$GOOS_$$GOARCH$$EXT" $(CMD_PATH); \
+		CGO_ENABLED=0 GOOS=$$GOOS GOARCH=$$GOARCH $(GO) build -trimpath -ldflags="$(LDFLAGS)" -o "$(DIST_DIR)/$(BIN_NAME)_$${GOOS}_$${GOARCH}$${EXT}" $(CMD_PATH); \
 	done
 
 install-local: build

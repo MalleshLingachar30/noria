@@ -1,31 +1,35 @@
 {
-  "name": "@amxv/go-cli-template",
+  "name": "@amxv/noria",
   "version": "0.1.0",
-  "description": "Template for shipping a Go CLI via npm with GitHub release automation",
+  "description": "Sticky, quota-aware routing for Codex and Claude Code accounts",
   "license": "Apache-2.0",
   "author": "amxv",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/amxv/go-cli-template.git"
+    "url": "git+https://github.com/amxv/noria.git"
   },
-  "homepage": "https://github.com/amxv/go-cli-template#readme",
+  "homepage": "https://noria.ashray.xyz",
   "bugs": {
-    "url": "https://github.com/amxv/go-cli-template/issues"
+    "url": "https://github.com/amxv/noria/issues"
   },
   "bin": {
-    "mycli": "bin/mycli.js"
+    "noria": "bin/noria.js"
   },
   "config": {
-    "cliName": "mycli",
-    "cliBinaryName": "mycli",
-    "goModule": "github.com/amxv/go-cli-template"
+    "cliName": "noria",
+    "cliBinaryName": "noria",
+    "goModule": "github.com/amxv/noria"
   },
   "files": [
-    "bin/mycli.js",
+    "bin/noria.js",
     "scripts/postinstall.js",
+    "scripts/project.js",
+    "scripts/setup.js",
     "cmd",
     "internal",
     "go.mod",
+    "go.sum",
+    "THIRD_PARTY_NOTICES*",
     "README.md",
     "LICENSE",
     "AGENTS.md",
@@ -35,7 +39,7 @@
   ],
   "scripts": {
     "postinstall": "node scripts/postinstall.js",
-    "test": "node --check bin/mycli.js && node --check scripts/postinstall.js && node --check scripts/project.js && node --check scripts/setup.js",
+    "test": "node --check bin/noria.js && node --check scripts/postinstall.js && node --check scripts/project.js && node --check scripts/setup.js && node --test scripts/*.test.js",
     "lint": "npm run test"
   },
   "engines": {
@@ -44,7 +48,10 @@
   "keywords": [
     "go",
     "cli",
-    "template",
+    "codex",
+    "claude-code",
+    "proxy",
+    "quota",
     "npm",
     "release"
   ]

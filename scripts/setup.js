@@ -252,6 +252,9 @@ function replaceIdentityReferences(current, config) {
 }
 
 function updateBuildMetadata(config) {
+  const modulePath = path.join(rootDir, "go.mod");
+  fs.writeFileSync(modulePath, fs.readFileSync(modulePath, "utf8")
+    .replace(/^module\s+\S+/m, `module ${config.goModule}`));
   const makefilePath = path.join(rootDir, "Makefile");
   let makefile = fs.readFileSync(makefilePath, "utf8");
   makefile = makefile
@@ -271,8 +274,8 @@ function updateBuildMetadata(config) {
 
 function collectTextFiles(directory) {
   const files = [];
-  const ignoredDirectories = new Set([".git", ".astro", "dist", "node_modules", "scripts"]);
-  const textExtensions = new Set([".astro", ".go", ".js", ".json", ".lock", ".md", ".mjs", ".ts", ".yml"]);
+  const ignoredDirectories = new Set([".git", ".astro", ".vercel", ".noria", "tmp", "dist", "node_modules", "scripts"]);
+  const textExtensions = new Set([".astro", ".go", ".js", ".json", ".lock", ".md", ".mod", ".mjs", ".ts", ".yml"]);
 
   function visit(currentDirectory) {
     for (const entry of fs.readdirSync(currentDirectory, { withFileTypes: true })) {

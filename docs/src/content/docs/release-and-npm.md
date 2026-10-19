@@ -1,84 +1,67 @@
 ---
-title: Release and npm publishing
-description: Understand the tag-driven GitHub release workflow and the npm wrapper package contract.
-order: 3
-category: Distribution
-summary: How native binaries, GitHub releases, and npm publishing fit together.
+title: Release & distribution
+description: How Noria’s native binaries, npm shim, changelog, and tag-driven release fit together.
+order: 10
+category: Development
+summary: The maintainer workflow for @amxv/noria and public GitHub release assets.
 ---
 
-## Release trigger
+Noria is distributed as `@amxv/noria` through npm and native binaries through [GitHub Releases](https://github.com/amxv/noria/releases). The project is licensed under Apache-2.0.
 
-The release workflow runs when a `v*` tag is pushed. Prepare the changelog and
-tag from the repository root:
+## Prepare a release
+
+Review the application and documentation together. Verify that help output, SDK pin, client wrapper behavior, and transport limitations match the implementation. Do not claim live account testing from fake-upstream results.
+
+Update the [changelog](/docs/changelog) with the release date and actual behavior, then run checks:
 
 ```bash
 make check
+go test -race ./...
 make docs-check
 make docs-build
-# edit docs/src/content/docs/changelog.md
-git add docs/src/content/docs/changelog.md
-git commit -m "docs: update changelog for v0.2.0"
-git push origin HEAD
-make release-tag VERSION=0.2.0
 ```
 
-The changelog is intentionally edited and reviewed by the agent or maintainer.
-`make release-tag` only creates and pushes the tag. GitHub Actions performs the
-release work after the tag arrives.
+Docs validation is serial. Review supported platform builds and the package’s contents before publishing. A native binary embeds the Claude bridge script, but users still explicitly install the pinned SDK with `noria bridge setup`.
 
-## What the workflow does
-
-The GitHub Actions workflow:
-
-1. runs Go and Node quality checks
-2. builds native binaries for supported OS/architecture targets
-3. uploads binaries to a GitHub Release
-4. publishes the npm package with the version from the tag
-
-The npm package itself stays small. It contains the JavaScript shim, postinstall script, Go source, and project files needed for fallback local builds.
-
-## Binary asset names
-
-Release assets use this shape:
+After maintainer review, commit and push the release changes, then create and push the version tag. For v0.1.0:
 
 ```bash
-<binary>_<goos>_<goarch>[.exe]
+make release-tag VERSION=0.1.0
 ```
 
-Examples:
+This target creates and pushes a tag; it is a publishing action, not a dry run. The `v*` tag triggers GitHub Actions to run the release pipeline and publish native assets and npm. Maintainers should follow the repository’s release skill/checklist and verify the workflow’s result rather than assume tag creation means publication succeeded.
+
+## Publishing prerequisites
+
+The npm package name must be publishable under the maintainer’s account or organization. The release workflow requires the repository’s configured npm publishing credential (`NPM_TOKEN`). Manage it in the credential store or GitHub secret settings; do not commit or print it.
+
+The public `amxv/noria` repository is the normal anonymous download path. Package version, release tag, binary download origin, and project metadata must agree. Deployment and release credentials are maintainer concerns; they are not required for ordinary local use.
+
+## Native assets
+
+Release names follow this contract:
+
+```text
+noria_darwin_amd64
+noria_darwin_arm64
+noria_linux_amd64
+noria_linux_arm64
+noria_windows_amd64.exe
+noria_windows_arm64.exe
+```
+
+The npm postinstall script resolves the asset for the platform. The installed native path is `bin/noria-bin`, with `.exe` on Windows. Changes to asset names require coordinated updates to the release workflow and installer.
+
+## npm installation
 
 ```bash
-mycli_darwin_arm64
-mycli_linux_amd64
-mycli_windows_amd64.exe
+npm install -g @amxv/noria
 ```
 
-Do not change this naming convention unless you update the workflow and `scripts/postinstall.js` together.
+The Node shim invokes the packaged native binary. Postinstall downloads it from GitHub Releases and can fall back to a local Go build if the download fails and Go is available. Download and installation failures should remain visible rather than masquerading as a successful setup.
 
-## npm install behavior
+Native Codex/Claude tools are separate prerequisites. npm installation does not sign in to provider accounts. Claude quota reads need Node, npm, and explicit installation of SDK 0.3.287 under the Noria home. No SDK installation runs on a model-request path.
 
-After npm install, `scripts/postinstall.js` tries to download the right native binary from GitHub Releases.
+## Documentation deployment
 
-If the download cannot be completed, it falls back to building locally with Go when possible.
-
-## Required secret
-
-Publishing to npm requires this GitHub secret:
-
-```bash
-NPM_TOKEN
-```
-
-Make sure the package name in `package.json` is available and publishable before tagging a release.
-
-The default package license is Apache-2.0 and is kept in sync with `LICENSE` and
-the bootstrap metadata. Run `make bootstrap BOOTSTRAP_ARGS='--license MIT'` when a project
-needs a different supported license and has the optional `license-generator` CLI
-installed.
-
-## Repository visibility
-
-The normal npm and release path assumes a public GitHub repository so postinstall
-can download release assets anonymously. If a project explicitly chooses a
-private repository with anonymous npm installation expectations, it must arrange
-authenticated or bundled assets in the shipping workflow.
+The static website is independent of the gateway. Its canonical URL is `https://noria.ashray.xyz`; use `docs` as the deployment Root Directory. Build output is `docs/dist`. A docs deployment never hosts your local accounts or forwards your model requests.

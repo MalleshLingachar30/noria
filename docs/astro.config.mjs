@@ -3,7 +3,7 @@ import zuedocs from "zuedocs/astro";
 
 export default defineConfig({
   output: "static",
-  site: "https://github.com/amxv/go-cli-template",
+  site: "https://noria.ashray.xyz",
   integrations: [zuedocs()],
   vite: {
     build: {

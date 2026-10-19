@@ -1,0 +1,183 @@
+// Package provider reads native, isolated account profiles and quota controls.
+package provider
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/amxv/noria/internal/model"
+)
+
+type Manager struct {
+	home          string
+	mu            sync.Mutex
+	gates         map[string]chan struct{}
+	snapshots     map[string]model.Snapshot
+	completed     map[string]time.Time
+	codexCommand  string
+	nodeCommand   string
+	claudeCommand string
+}
+
+func New(home string) *Manager {
+	return &Manager{home: home, gates: make(map[string]chan struct{}), snapshots: make(map[string]model.Snapshot), completed: make(map[string]time.Time), codexCommand: "codex", nodeCommand: "node", claudeCommand: "claude"}
+}
+
+func (m *Manager) profile(a model.Account) (string, error) {
+	if a.Provider != "codex" && a.Provider != "claude" {
+		return "", errors.New("unsupported provider")
+	}
+	if !filepath.IsAbs(a.Profile) {
+		return "", errors.New("account profile must be absolute")
+	}
+	root, err := filepath.EvalSymlinks(m.home)
+	if err != nil {
+		return "", errors.New("Noria home is unavailable")
+	}
+	p, err := filepath.EvalSymlinks(a.Profile)
+	if err != nil {
+		return "", errors.New("account profile is unavailable; run account login")
+	}
+	rel, err := filepath.Rel(root, p)
+	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", errors.New("account profile must be isolated below Noria home")
+	}
+	return p, nil
+}
+
+func (m *Manager) lock(ctx context.Context, profile string) (func(), error) {
+	m.mu.Lock()
+	gate := m.gates[profile]
+	if gate == nil {
+		gate = make(chan struct{}, 1)
+		m.gates[profile] = gate
+	}
+	m.mu.Unlock()
+	select {
+	case gate <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	lock := filepath.Join(profile, "native.lock")
+	ticker := time.NewTicker(30 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		f, err := os.OpenFile(lock, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if err == nil {
+			_, _ = fmt.Fprintf(f, "pid=%d\n", os.Getpid())
+			_ = f.Close()
+			return func() { _ = os.Remove(lock); <-gate }, nil
+		}
+		if !os.IsExist(err) {
+			<-gate
+			return nil, errors.New("cannot lock isolated account profile")
+		}
+		// Native login may be interactive, so never steal its lock based on age.
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			<-gate
+			return nil, ctx.Err()
+		}
+	}
+}
+
+func (m *Manager) Credentials(ctx context.Context, a model.Account) (model.Credential, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	p, err := m.profile(a)
+	if err != nil {
+		return model.Credential{}, err
+	}
+	c, expired, err := m.readCredential(ctx, a, p)
+	if err != nil {
+		return c, err
+	}
+	if expired {
+		// Valid tokens are read without waiting for a passive quota probe.
+		// Only rotation needs the exclusive profile lock. Recheck after
+		// acquiring it because another process may already have refreshed.
+		unlock, lockErr := m.lock(ctx, p)
+		if lockErr != nil {
+			return model.Credential{}, lockErr
+		}
+		defer unlock()
+		c, expired, err = m.readCredential(ctx, a, p)
+		if err != nil || !expired {
+			return c, err
+		}
+		if a.Provider == "codex" {
+			_, err = m.codexControl(ctx, a, p, true)
+		} else {
+			_, err = m.refreshNative(ctx, a, p)
+		}
+		if err != nil {
+			return model.Credential{}, fmt.Errorf("native credential refresh failed; run account login: %w", err)
+		}
+		c, expired, err = m.readCredential(ctx, a, p)
+		if err != nil {
+			return model.Credential{}, err
+		}
+		if expired {
+			return model.Credential{}, errors.New("native account credentials expired; run account login")
+		}
+	}
+	return c, nil
+}
+
+func (m *Manager) Refresh(ctx context.Context, a model.Account) (model.Snapshot, error) {
+	started := time.Now()
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	p, err := m.profile(a)
+	if err != nil {
+		return model.Snapshot{}, err
+	}
+	unlock, err := m.lock(ctx, p)
+	if err != nil {
+		return model.Snapshot{}, err
+	}
+	defer unlock()
+	m.mu.Lock()
+	cached, ok := m.snapshots[p]
+	completed := m.completed[p]
+	m.mu.Unlock()
+	if ok && completed.After(started) {
+		cached.AccountID = a.ID
+		return cached, nil
+	}
+	s, err := m.refreshNative(ctx, a, p)
+	if err == nil {
+		m.mu.Lock()
+		m.snapshots[p] = s
+		m.completed[p] = time.Now()
+		m.mu.Unlock()
+	}
+	return s, err
+}
+
+func (m *Manager) refreshNative(ctx context.Context, a model.Account, p string) (model.Snapshot, error) {
+	if a.Provider == "codex" {
+		return m.codexQuota(ctx, a, p)
+	}
+	return m.claudeQuota(ctx, a, p)
+}
+
+func (m *Manager) Doctor() []string {
+	var issues []string
+	for _, tool := range []string{m.codexCommand, m.claudeCommand, m.nodeCommand} {
+		if _, err := lookPath(tool); err != nil {
+			issues = append(issues, tool+" executable unavailable")
+		}
+	}
+	if _, err := os.Stat(filepath.Join(m.home, "bridge", "node_modules", "@anthropic-ai", "claude-agent-sdk", "package.json")); err != nil {
+		issues = append(issues, "Claude usage bridge missing; run noria bridge setup")
+	}
+	return issues
+}

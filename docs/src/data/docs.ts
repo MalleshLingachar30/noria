@@ -1,39 +1,40 @@
 export const siteConfig = {
-  name: "mycli",
-  strapline: "A Go CLI shipped through npm",
+  name: "Noria",
+  strapline: "Keep your agents in flow",
   description:
-    "Documentation for mycli, a starter Go command-line tool template with npm distribution, GitHub release automation, and an embedded ZueDocs-powered docs site.",
-  repoUrl: "https://github.com/amxv/go-cli-template",
-  accentColor: "#0369a1",
-  accentColorDark: "#38bdf8",
+    "A lightweight local Go CLI for native Codex and Claude account pools. Hard session affinity and reset-aware placement, without paid fallback or model swaps.",
+  repoUrl: "https://github.com/amxv/noria",
+  logoHref: "/favicon.svg",
+  accentColor: "#8e3d25",
+  accentColorDark: "#e7a18a",
   footerSections: [
     {
-      title: "mycli",
+      title: "On your machine",
       text:
-        "A starter Go CLI template with native binaries, npm installation, release automation, and docs included from day one."
+        "A local Go gateway. Your native clients, your authorized accounts, your requested model. No cloud service in the routing path."
     },
     {
-      title: "What this site covers",
+      title: "Built in the open",
       text:
-        "Installation, local development, command customization, release workflow, npm packaging, and docs site maintenance."
+        "v0.1.0 · Apache-2.0. Native binaries for macOS, Linux, and Windows. No paid fallback or model swaps."
     },
     {
-      title: "Repository",
-      linkPrefix: "Source: ",
-      linkHref: "https://github.com/amxv/go-cli-template",
-      linkLabel: "github.com/amxv/go-cli-template"
+      title: "Source & releases",
+      linkHref: "https://github.com/amxv/noria",
+      linkLabel: "github.com/amxv/noria"
     }
   ]
 } as const;
 
 export const docCategories = [
   "Start",
-  "Development",
-  "Distribution",
-  "Reference"
+  "Routing",
+  "Reference",
+  "Development"
 ] as const;
 
 export const primaryNav = [
   { href: "/docs", label: "Docs" },
+  { href: "/docs/scheduling", label: "How it routes" },
   { href: siteConfig.repoUrl, label: "GitHub", external: true }
 ];

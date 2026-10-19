@@ -3,6 +3,7 @@ import { getCollection, render } from "astro:content";
 import BaseLayout from "zuedocs/layouts/BaseLayout.astro";
 import DocsPageLayout from "zuedocs/layouts/DocsPageLayout.astro";
 import { docCategories, primaryNav, siteConfig } from "../../data/docs";
+import "../../styles/global.css";
 
 const docs = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
 
@@ -31,8 +32,9 @@ const grouped = docCategories
   siteConfig={siteConfig}
   primaryNav={primaryNav}
 >
+  <a class="skip-link" href="#content">Skip to content</a>
   <section class="shell docs-shell">
-    <aside class="docs-sidebar">
+    <aside class="docs-sidebar" id="docs-sidebar" data-docs-sidebar aria-label="Docs menu">
       <p class="docs-sidebar__eyebrow">Docs map</p>
       {grouped.map((group) => (
         <div class="docs-sidebar__group">
@@ -43,6 +45,7 @@ const grouped = docCategories
                 <a
                   class:list={["docs-sidebar__link", doc.id === entry.id && "is-active"]}
                   href={`/docs/${doc.id}`}
+                  aria-current={doc.id === entry.id ? "page" : undefined}
                 >
                   {doc.data.title}
                 </a>
@@ -52,8 +55,9 @@ const grouped = docCategories
         </div>
       ))}
     </aside>
+    <button class="docs-sidebar-backdrop" type="button" data-docs-sidebar-close aria-label="Close docs menu"></button>
 
-    <article class="docs-article">
+    <article id="content" class="docs-article">
       <DocsPageLayout
         title={entry.data.title}
         description={entry.data.description}

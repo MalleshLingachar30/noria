@@ -2,6 +2,7 @@
 import { getCollection } from "astro:content";
 import BaseLayout from "zuedocs/layouts/BaseLayout.astro";
 import { docCategories, primaryNav, siteConfig } from "../../data/docs";
+import "../../styles/global.css";
 
 const entries = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
 const grouped = docCategories.map((category) => ({
@@ -12,17 +13,17 @@ const grouped = docCategories.map((category) => ({
 
 <BaseLayout
   title={`${siteConfig.name} Docs`}
-  description="Read the mycli guides for bootstrap, customization, release packaging, command reference, and docs maintenance."
+  description="Install Noria, sign in to isolated accounts, connect your native clients, and understand session affinity and quota scheduling."
   siteConfig={siteConfig}
   primaryNav={primaryNav}
 >
-  <section class="shell docs-index-hero">
+  <a class="skip-link" href="#content">Skip to content</a>
+  <section id="content" class="shell docs-index-hero">
     <p class="section-label">Documentation</p>
-    <h1>Use the docs to customize mycli, validate local changes, and ship future Go CLIs with documentation included.</h1>
+    <h1>A clear route from sign-in to a running session.</h1>
     <p>
-      Start with bootstrap, then move into command customization, npm distribution,
-      release automation, command reference, and docs-site maintenance. The structure follows
-      the way a small CLI grows from template to shipped tool.
+      Install the local gateway, add your accounts, and keep using Codex or Claude Code.
+      Learn when Noria places a session, when it switches accounts, and where the limits are.
     </p>
   </section>
   <section class="shell docs-index">

@@ -1,95 +1,45 @@
-# AGENTS.md
+# Noria agent instructions
 
-Guidance for coding agents working in `go-cli-template`.
-
-## Purpose
-
-This repo is a generic starter for Go command-line tools distributed through npm.
-
-The sample command is `mycli`. Replace it with your actual CLI name and behavior.
+Noria is a lightweight Go CLI and local native Codex/Claude account gateway. Public identity: `amxv/noria`, npm `@amxv/noria`, documentation `https://noria.ashray.xyz`, Apache-2.0.
 
 ## Architecture
 
-- `cmd/mycli/main.go`: process entrypoint, error handling, exits non-zero on failure.
-- `internal/app/app.go`: command parser + handlers.
-- `internal/app/app_test.go`: starter tests.
-- `bin/mycli.js`: npm shim that invokes packaged native binary.
-- `scripts/postinstall.js`: downloads release binary on install, falls back to `go build`.
-- `scripts/setup.js`: initializes command, module, repository, npm, docs, and license identity.
-- `project.config.json`: canonical repeated project identity fields.
-- `.github/workflows/release.yml`: tag-driven release pipeline.
-- `docs/`: self-contained Astro/ZueDocs workspace with its own Bun lockfile and Vercel config.
+- `cmd/noria/`: process entrypoint and error handling.
+- `internal/app/`: commands, daemon lifecycle/control, native login and client wrappers.
+- `internal/core/`: hard affinity, quota eligibility, placement/reservations, persisted metadata.
+- `internal/provider/`: isolated native quota/auth integration and embedded Claude bridge.
+- `internal/proxy/`: gateway policy, HTTP/SSE and WebSocket forwarding.
+- `internal/config/`, `internal/model/`: private configuration and shared types.
+- `internal/buildinfo/`: version metadata.
+- `bin/noria.js`, `scripts/postinstall.js`: npm shim and release binary installation.
+- `project.config.json`: repeated project identity.
+- `.github/workflows/release.yml`: tag-driven release.
+- `docs/`: isolated Astro/ZueDocs workspace.
 
-## Local commands
+## Behavioral invariants
 
-Use `make` targets:
+Keep healthy sessions on their bound account until an applicable limit or unavailability requires a switch. No proactive score-based migration or snapback. New placement and failover consider independent five-hour/weekly/model constraints, reset timing, learned consumption, and in-flight reservations. Every applicable blocker must clear. Unknown telemetry stays unknown. No arbitrary quota reserve, dummy window-start prompt, paid fallback, reset-credit consumption, model swap, or provider swap.
 
-- `make fmt`
-- `make test`
-- `make vet`
-- `make lint`
-- `make check`
-- `make build`
-- `make build-all`
-- `make install-local`
-- `make bootstrap BOOTSTRAP_ARGS='...'`
+Selection/reservation must be atomic and reconciliation must avoid double counting. Persist affinity/blocker metadata safely. Native bodies, continuation data, reasoning/tool events, and terminal events must retain their meaning and payloads. Retry only before output is committed; never claim partially delivered generations can be transparently spliced.
 
-Direct commands:
+Isolate upstream auth profiles under absolute `NORIA_HOME` paths. Normal client wrappers preserve user histories/config roots with child-only overrides; do not persistently edit those roots. Default loopback only, random local secret, Host/Origin validation, private state, and no content/token logging.
 
-- `go test ./...`
-- `go vet ./...`
-- `npm run lint`
-- `make docs-check`
-- `make docs-build`
+## Tests and local work
 
-## How to customize safely
+Use `make fmt`, `make test`, `make vet`, `make lint`, `make check`, `make build`, `make build-all`, and `make install-local` as appropriate. Go changes should also receive relevant race/integration checks.
 
-1. Run `make bootstrap` to rename the CLI command consistently.
-The bootstrap script updates the command path, npm wrapper, package metadata, Go
-module, Makefile, workflow, postinstall, docs config, and license metadata.
+All automated tests use temporary isolated `HOME`, `NORIA_HOME`, `CODEX_HOME`, and `CLAUDE_CONFIG_DIR` values, fake credentials/native processes, and fake upstreams. Never touch actual `~/.gg/{codex,claude}` or `~/.{codex,claude}` profiles, launch real interactive account login, or spend live quota in tests. Never equate fake-upstream checks with live multi-account validation.
 
-2. Keep binary naming convention unchanged unless you also update postinstall/workflow:
-- release assets: `<binary>_<goos>_<goarch>[.exe]`
-- npm-installed binary path: `bin/<binary>-bin` (or `.exe` on Windows)
+Keep new code files at or below 1,000 lines. Respect task ownership when other workers are active. Do not commit, push, tag, or deploy unless the current task authorizes it.
 
-3. If adding dependencies, commit `go.sum` and optionally enable Go cache in workflow.
+## Documentation
 
-4. Keep help output expressive and command-local (`<command> --help` should explain examples).
+Update docs when command behavior changes. `docs/src/data/docs.ts` owns identity/nav/categories; content categories must match the schema. Keep the shared shell imported from `zuedocs/layouts/*`, behavior from `zuedocs/docsEnhancements`, and `zuedocs/styles.css` in the local style entrypoint. Keep project-specific content and overrides local. GitHub navigation must retain its repository URL/icon.
 
-5. Update the bundled docs site when command behavior changes:
-- `docs/src/data/docs.ts` for site name, repo URL, nav, footer sections, and categories
-- `docs/src/pages/index.astro` for landing-page product copy
-- `docs/src/content/docs/*.md` for guides and command reference
-
-6. ZueDocs consumer pattern:
-- import shared layouts from `zuedocs/layouts/*`
-- import shared behavior/styles from `zuedocs/docsEnhancements` and `zuedocs/styles.css`
-- keep repo-specific content/config local instead of forking shared shell files
-- keep all web tooling under `docs/`; Vercel should use `docs` as the Root Directory
+Run `make docs-check` then `make docs-build` **serially**. Never run Astro check/build concurrently in one workspace. Verify HTML and raw Markdown routes, responsive navigation, light/dark themes, search, and code copying. Use canonical `https://noria.ashray.xyz`, Vercel Root Directory `docs`, and output `docs/dist`.
 
 ## Release contract
 
-Release pipeline triggers on `v*` tags and expects:
+Update `docs/src/content/docs/changelog.md` with real dated release notes before tagging. Follow `.agents/skills/release/SKILL.md` when the release skill is invoked. Native asset names stay `noria_<goos>_<goarch>[.exe]`; npm-installed binary stays `bin/noria-bin[.exe]`. Coordinate changes with both release workflow and postinstall.
 
-- `NPM_TOKEN` GitHub secret present before the first tag-driven release.
-- npm package name in `package.json` is publishable under your account/org.
-- repository URL matches the release origin used by `scripts/postinstall.js`.
-- public GitHub visibility is the normal anonymous npm install path.
-
-## Guardrails
-
-- Prefer additive changes; do not break the release asset naming contract unintentionally.
-- If you change release artifacts or CLI binary name, update both workflow and postinstall script in the same PR.
-- Run docs validation serially (`make docs-check` then `make docs-build`); do not run Astro check/build concurrently in the same repo.
-
-## Changelog and Release Skill
-
-This template includes:
-
-- `docs/src/content/docs/changelog.md` as a placeholder changelog page for generated projects.
-- `.agents/skills/release/SKILL.md` as a release checklist that updates the changelog before tagging.
-
-When customizing the template for a real CLI, keep both files and update the
-placeholder changelog manually before each release. Run the checks and docs
-validation, commit and push the changelog, then push a `v*` tag. GitHub Actions
-builds the release assets and publishes npm.
+The public GitHub release origin and npm identity must match package metadata. GitHub Actions publishes on `v*` tags and needs its npm publishing credential (`NPM_TOKEN`). Do not print secrets or include `noria env` output in diagnostics. Pin the Claude SDK bridge explicitly, currently 0.3.287; do not install dependencies on the request path.

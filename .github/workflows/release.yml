@@ -2,129 +2,141 @@ name: release
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ["v*"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
-  GO_VERSION: "1.26"
-  NODE_VERSION: "22"
-  CLI_BINARY: "mycli"
-  CLI_ENTRYPOINT: "mycli"
-  CLI_MODULE: "github.com/amxv/go-cli-template"
+  GO_VERSION: "1.26.4"
+  NODE_VERSION: "24"
+  CLI_BINARY: "noria"
+  CLI_ENTRYPOINT: "noria"
+  CLI_MODULE: "github.com/amxv/noria"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: false
-
-      - name: Go test
-        run: go test ./...
-
-      - name: Go vet
-        run: go vet ./...
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+          cache: true
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-
-      - name: Node checks
-        run: npm run test
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+      - name: Validate version and source
+        run: |
+          node scripts/check-release.js "$GITHUB_REF_NAME"
+          go mod verify
+          go test -race ./...
+          go vet ./...
+          npm test
+          test -z "$(gofmt -l cmd internal)"
+      - name: Check and build documentation
+        run: |
+          make docs-install
+          make docs-check
+          make docs-build
+      - name: Inspect npm package
+        run: npm pack --dry-run
 
   build-binaries:
     needs: quality
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - goos: darwin
-            goarch: amd64
-          - goos: darwin
-            goarch: arm64
-          - goos: linux
-            goarch: amd64
-          - goos: linux
-            goarch: arm64
-          - goos: windows
-            goarch: amd64
-          - goos: windows
-            goarch: arm64
+        goos: [darwin, linux, windows]
+        goarch: [amd64, arm64]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache: false
-
+          cache: true
       - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
         run: |
           mkdir -p dist
           EXT=""
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            EXT=".exe"
-          fi
+          if [ "$GOOS" = windows ]; then EXT=".exe"; fi
           VERSION="${GITHUB_REF_NAME#v}"
-          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-            go build -trimpath -ldflags="-s -w -X ${{ env.CLI_MODULE }}/internal/buildinfo.Version=${VERSION}" \
-            -o "dist/${{ env.CLI_BINARY }}_${{ matrix.goos }}_${{ matrix.goarch }}${EXT}" ./cmd/${{ env.CLI_ENTRYPOINT }}
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+          go build -mod=readonly -trimpath \
+            -ldflags="-s -w -X ${{ env.CLI_MODULE }}/internal/buildinfo.Version=$VERSION" \
+            -o "dist/${{ env.CLI_BINARY }}_${GOOS}_${GOARCH}${EXT}" ./cmd/${{ env.CLI_ENTRYPOINT }}
+      - uses: actions/upload-artifact@v4
         with:
           name: binary-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/*
+          if-no-files-found: error
 
   github-release:
     needs: build-binaries
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
-
-      - name: Publish GitHub release assets
+      - name: Verify six binaries and generate checksums
+        run: |
+          test "$(find dist -maxdepth 1 -type f -name 'noria_*' | wc -l)" -eq 6
+          (cd dist && sha256sum noria_* > SHA256SUMS)
+          cp LICENSE THIRD_PARTY_NOTICES.md dist/
+          node scripts/release-notes.js > release-notes.md
+      - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          name: Noria ${{ github.ref_name }}
+          body_path: release-notes.md
           files: dist/*
+          fail_on_unmatched_files: true
 
   npm-publish:
     needs: github-release
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: "https://registry.npmjs.org"
-
-      - name: Set npm version from tag
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          VERSION="$VERSION" node -e "const fs=require('fs');const p=require('./package.json');p.version=process.env.VERSION;fs.writeFileSync('package.json', JSON.stringify(p, null, 2)+'\\n');"
-
       - name: Publish to npm
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  install-smoke:
+    needs: npm-publish
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install the published package and check the native entrypoint
+        shell: bash
+        env:
+          NORIA_REQUIRE_PREBUILT: "1"
+        run: |
+          npm install --global "@amxv/noria@${GITHUB_REF_NAME#v}"
+          noria --version
+          noria --help

@@ -1,27 +1,25 @@
 ---
 title: Changelog
-description: "Release notes for this CLI."
-order: 99
-category: Distribution
-summary: Placeholder changelog for projects created from this template.
+description: Release notes and validation boundaries for Noria.
+order: 11
+category: Development
+summary: The initial v0.1.0 release, dated October 20, 2026.
 ---
 
-This page is a starter changelog for projects created from this template. Replace the placeholder entries with real release notes when you cut versions.
+## 0.1.0 · 2026-10-20
 
-## 0.1.0 - YYYY-MM-DD
+Initial Noria release.
 
-- Initial release.
-- Describe the first usable CLI commands.
-- Describe any install, npm package, or release-binary behavior users should know about.
+- Local Go CLI and loopback gateway for explicitly authorized native Codex and Claude account pools.
+- Account registration, isolated native login profiles, enable/disable/remove controls, quota refresh, status, doctor, and native client wrappers.
+- Hard session affinity with persisted bindings; reset-aware initial and failover placement considers independent five-hour/weekly windows, scoped limits, learned consumption, and in-flight reservations.
+- Native HTTP/SSE forwarding and Codex WebSocket handling, with bounded safe retries before output is committed. Requests retain their model, settings, and continuation data.
+- Random local gateway authentication, Host/Origin checks, private state, and credential-free status diagnostics.
+- Embedded Claude usage bridge with explicit installation of pinned `@anthropic-ai/claude-agent-sdk@0.3.287`; Node is required and the usage method is experimental.
+- Native binary distribution through GitHub Releases and the `@amxv/noria` npm wrapper. Apache-2.0 license.
 
-## Maintainer notes
+### Known boundaries
 
-When adding future entries:
+Installed Codex 0.162.1 and Claude Code 2.1.299 passed local compatibility tests for a first-request quota failure and for resuming an existing conversation after an account limit. The tests verify preserved conversation history and use fake credentials and controlled upstreams. Live subscription accounts have not yet been validated. Partially delivered generations are not transparently spliced. Caches remain account-local and warm naturally after a forced switch.
 
-- Keep the newest version at the top.
-- Add sections only for version tags that exist.
-- Summarize code and product changes from `main` since the previous version tag.
-- This is an OSS template, so internal code changes may be included when useful.
-- Do not include docs-site-only changes such as site styling, docs package bumps, deploy plumbing, footer/layout changes, or documentation navigation changes.
-- Rewrite commit subjects into clear release notes instead of pasting raw commit messages.
-- If a release contains only tagging/release metadata, write: `Maintenance release. No direct code behavior changes beyond release preparation.`
+When every matching account is exhausted, Noria reports unavailability. It does not buy credits, redeem quota resets, enable paid fallback, or switch models/providers. See [troubleshooting](/docs/troubleshooting#compatibility-and-validation) for compatibility context.

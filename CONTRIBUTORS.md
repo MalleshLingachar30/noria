@@ -1,100 +1,39 @@
-# CONTRIBUTORS.md
+# Contributing to Noria
 
-Maintainer notes for this template repository.
+Noria is a local native Codex/Claude account gateway, distributed as `@amxv/noria`. Start with the [development guide](https://noria.ashray.xyz/docs/development) and [routing contract](https://noria.ashray.xyz/docs/scheduling).
 
-## Prerequisites
+## Prerequisites and checks
 
-- Go `1.26+`
-- Node `18+`
-- Bun `1+`
-- optional `license-generator` for non-Apache license changes
-- npm account with publish rights for the package name in `package.json`
-- GitHub repo admin access
-
-## Local development
+Use the Go version in `go.mod`, Node.js for the npm wrapper and script checks, and Bun for the isolated docs workspace. Native clients are required for interactive use; automated tests substitute fake processes and upstreams. Claude quota use additionally requires `noria bridge setup` and the pinned SDK 0.3.287.
 
 ```bash
 make check
+go test -race ./...
 make build
-./dist/mycli --help
-```
-
-Install command locally:
-
-```bash
-make install-local
-mycli --help
-```
-
-For a new CLI, use the bootstrap flow so the command, module, repository,
-npm package, release metadata, docs config, and license stay synchronized:
-
-```bash
-make bootstrap BOOTSTRAP_ARGS='--cli-name pluck --go-module github.com/acme/pluck \
-  --github-owner acme --github-repo pluck --npm-package @acme/pluck'
-```
-
-## Release process
-
-1. Ensure `main` is green and the docs pass serially:
-
-```bash
-make check
+./dist/noria --help
+make docs-install
 make docs-check
 make docs-build
 ```
 
-2. Edit `docs/src/content/docs/changelog.md` manually, then commit and push it:
+Run `make docs-check` then `make docs-build` serially. For site work use `make docs-dev`; keep all web tooling in `docs/` and shared layouts imported from ZueDocs.
 
-```bash
-git add docs/src/content/docs/changelog.md
-git commit -m "docs: update changelog for v0.1.0"
-git push origin HEAD
-```
+## Isolation and behavior
 
-3. Push the version tag. The low-level Make target is optional:
+Never use actual developer auth, histories, or native config roots in automated tests. Set temporary `HOME`, `NORIA_HOME`, `CODEX_HOME`, and `CLAUDE_CONFIG_DIR`; use fake credentials, fake native executables, and HTTP/WebSocket test upstreams. Do not run real login flows or spend live quota during automated validation.
 
-```bash
-make release-tag VERSION=0.1.0
-# or: git tag v0.1.0 && git push origin v0.1.0
-```
+Preserve hard session affinity, independent reset windows, atomic reservations, and request/model/provider fidelity. Do not move healthy sessions because scores change or a reset happens elsewhere. Retry only when safe before output is committed. Do not replay delivered tools or claim arbitrary midstream splicing.
 
-4. GitHub Actions `release` workflow runs automatically:
-- quality checks
-- cross-platform binary build
-- GitHub release publish
-- npm publish
+Account authentication profiles are isolated under Noria’s home. Normal `noria run` clients retain their existing conversation/config roots with child-only overrides. Do not persistently edit normal native settings to make a test pass.
 
-## Required GitHub secret
+No request-content or token logs. Do not include secrets, auth files, transcripts, or `noria env` output in reports. Label fake-upstream results accurately; live multi-account validation remains a separate explicit activity.
 
-- `NPM_TOKEN`: npm automation token with publish rights for your package.
+## Releases
 
-Configure it once in the repository settings or with `gh secret set NPM_TOKEN`.
-The template does not read local keychains or synchronize release secrets.
+Update `docs/src/content/docs/changelog.md` with the real behavior and release date. Reconcile command help, SDK pin, wrappers, and transport caveats. Run the checks above and verify release-platform builds and npm contents.
 
-## npm token setup
+After maintainer review, stage, commit, and push the release changes, then use `make release-tag VERSION=x.y.z`. This pushes a `v*` tag and triggers GitHub Actions to publish native assets and npm. The workflow needs its npm publishing credential (`NPM_TOKEN`). Never commit or print credentials.
 
-Create token at npm:
+Keep asset names `noria_<goos>_<goarch>[.exe]` and installed paths `bin/noria-bin[.exe]` consistent with the workflow and postinstall script. The docs site uses canonical URL `https://noria.ashray.xyz`, Vercel Root Directory `docs`, and output `docs/dist`.
 
-- Profile -> Access Tokens -> Create New Token
-- Use an automation/granular token scoped to required package/org
-
-Validate npm auth locally with your normal npm tooling if needed. Do not print
-the token.
-
-## Notes on package naming
-
-Before first publish, set a package name you control in `package.json`.
-
-- Example unscoped: `"name": "your-cli-name"`
-- Example scoped: `"name": "@your-scope/your-cli-name"`
-
-The default license is Apache-2.0 and does not require `license-generator`. Use
-`make bootstrap BOOTSTRAP_ARGS='--license MIT'` (or another name from
-`license-generator --list`) to regenerate `LICENSE` and synchronize the package
-and docs metadata when the optional CLI is installed. Without it, bootstrap
-continues with Apache-2.0 and prints a warning.
-
-For a private GitHub repository, release assets require authenticated downloads.
-The normal anonymous npm path is a public repository; use the explicit
-`--anonymous-npm` warning before choosing a private repo for that flow.
+See the [release guide](https://noria.ashray.xyz/docs/release-and-npm) and repository release skill. Contributions are under Apache-2.0.

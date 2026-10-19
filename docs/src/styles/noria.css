@@ -1,0 +1,246 @@
+@font-face {
+  font-family: "Plex";
+  src: url("/fonts/ibm-plex-sans-regular.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Plex";
+  src: url("/fonts/ibm-plex-sans-medium.ttf") format("truetype");
+  font-weight: 500 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Newsreader";
+  src: url("/fonts/newsreader-regular.ttf") format("truetype");
+  font-weight: 400 600;
+  font-display: swap;
+}
+
+:root,
+:root[data-theme="light"] {
+  --bg: #f8f6ef;
+  --surface: #fcfbf6;
+  --surface-muted: #f0eee5;
+  --surface-subtle: #eeece3;
+  --surface-hover: #e9e6da;
+  --surface-strong: #f0eee5;
+  --ink: #282c27;
+  --muted: #62675d;
+  --line: #d9d9cc;
+  --accent: #282c27;
+  --signal: #8e3d25;
+  --font-sans: "Plex", Verdana, sans-serif;
+  --font-heading: "Newsreader", Georgia, serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --code-bg: #eeece3;
+  --code-header-bg: #e8e5da;
+  --code-ink: #282c27;
+  --code-line: #d4d4c5;
+  --code-button-bg: #f8f6ef;
+  --code-button-ink: #555d50;
+  --code-button-strong: #282c27;
+  --terminal-bg: #272e29;
+  --terminal-ink: #f2f3e9;
+  --noria-tint: #eceee2;
+}
+:root[data-theme="dark"] {
+  --bg: #181e1b;
+  --surface: #1f2621;
+  --surface-muted: #242c26;
+  --surface-subtle: #273028;
+  --surface-hover: #303a32;
+  --surface-strong: #222a24;
+  --ink: #eeeee3;
+  --muted: #b1b8a9;
+  --line: #3c463b;
+  --accent: #eeeee3;
+  --signal: #e7a18a;
+  --code-bg: #202720;
+  --code-header-bg: #1a211a;
+  --code-ink: #eeeee3;
+  --code-line: #3c463b;
+  --code-button-bg: #2b342b;
+  --code-button-ink: #c3c9b9;
+  --code-button-strong: #eeeee3;
+  --terminal-bg: #111813;
+  --terminal-ink: #f2f3e9;
+  --noria-tint: #293329;
+}
+html { font-size: 15px; scroll-padding-top: 7rem; }
+body { line-height: 1.65; }
+::selection { background: var(--signal); color: var(--bg); }
+:focus-visible { outline: 2px solid var(--signal); outline-offset: 5px; }
+.shell { width: min(1180px, calc(100% - 5rem)); }
+.brand__name, .footer-brand { font-family: var(--font-heading); font-size: 2rem; font-weight: 400; }
+.brand__strapline { font-family: var(--font-mono); font-size: .63rem; letter-spacing: .01em; }
+.brand__logo, .footer-brand__logo { width: 2.1rem; height: 2.1rem; }
+.site-header__inner { min-height: 6rem; }
+.site-header { backdrop-filter: blur(12px); }
+.site-nav__link, .site-footer__title { font-family: var(--font-sans); }
+.site-nav__github { width: 1.25rem; height: 1.25rem; }
+.site-nav__index { display: none; }
+.site-footer { margin-top: 0; background: var(--surface-muted); }
+.site-footer__mast > p { font-family: var(--font-heading); font-size: 1.5rem; }
+.site-footer__title { font-weight: 500; }
+.skip-link { position: fixed; top: -6rem; left: 1rem; z-index: 200; background: var(--ink); color: var(--bg); padding: .8rem 1.2rem; }
+.skip-link:focus { top: 1rem; }
+
+/* The landing page is a field notebook: large type, fine rules, one dark terminal. */
+.noria-home h1, .noria-home h2, .docs-index-hero h1 { font-weight: 400; letter-spacing: -.04em; }
+.noria-home em { font-weight: 400; color: var(--signal); }
+.noria-eyebrow { font-family: var(--font-mono); text-transform: uppercase; font-size: .68rem; letter-spacing: .075em; line-height: 1.6; color: var(--muted); }
+.noria-eyebrow > span { color: var(--signal); padding-right: .35rem; }
+.noria-hero { display: grid; grid-template-columns: 1.12fr 1fr; gap: 5rem; padding-top: 6.5rem; padding-bottom: 5.5rem; align-items: center; }
+.noria-hero h1 { margin: 2rem 0 1.8rem; font-size: clamp(4.5rem, 7vw, 7rem); line-height: .98; }
+.noria-hero__promise { font-size: 1.4rem; line-height: 1.45; }
+.noria-hero__lede { max-width: 34rem; margin-top: 1.3rem; color: var(--muted); font-size: 1.05rem; }
+.noria-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.4rem; margin-top: 2rem; }
+.noria-home .button { display: inline-flex; gap: 1.5rem; align-items: center; padding: .85rem 1.3rem; border-radius: 0; font-size: .88rem; font-family: var(--font-sans); font-weight: 500; }
+.noria-home .button--solid { background: var(--signal); color: var(--bg); border-color: var(--signal); }
+.noria-home .button--solid:hover { background: var(--ink); border-color: var(--ink); color: var(--bg); text-decoration: none; }
+.noria-text-link { font-size: .86rem; font-weight: 500; text-decoration: underline; text-underline-offset: .4em; text-decoration-color: var(--line); }
+.noria-text-link:hover { color: var(--signal); text-decoration-color: var(--signal); }
+.noria-hero__footnote { margin-top: 1.6rem; color: var(--muted); font-family: var(--font-mono); font-size: .66rem; }
+.noria-workbench { position: relative; min-width: 0; padding: 1rem 0 0 1rem; }
+.noria-workbench::before { content: ""; position: absolute; inset: 0 1rem 1rem 0; z-index: -1; border: 1px solid var(--line); }
+.noria-terminal { background: var(--terminal-bg); color: var(--terminal-ink); min-width: 0; }
+.noria-terminal__bar { display: flex; align-items: center; justify-content: space-between; padding: .9rem 1.3rem; border-bottom: 1px solid #495448; font-family: var(--font-mono); font-size: .65rem; color: #b2c1ac; }
+.noria-terminal__bar > span:first-child { font-size: .45rem; letter-spacing: .4em; }
+.noria-terminal pre { margin: 0; padding: 1.7rem 1.5rem 2rem; overflow-x: auto; font-size: .76rem; line-height: 1.95; }
+.noria-terminal__comment { color: #a8b4a0; }
+.noria-terminal__prompt { color: #e6ac91; }
+.noria-session { background: var(--noria-tint); padding: 1.4rem 1.5rem; border: 1px solid var(--line); border-top: 0; }
+.noria-session__path { display: flex; gap: 1.5rem; align-items: center; justify-content: space-between; margin-top: .75rem; font-family: var(--font-mono); font-size: .8rem; }
+.noria-session__path strong { font-weight: 500; }
+.noria-session__requests { display: flex; gap: 5px; margin: .9rem 0; }
+.noria-session__requests i { height: 5px; flex: 1; background: #6a7c53; }
+.noria-session > p:last-child { color: var(--muted); font-size: .78rem; }
+.noria-principles { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 2.4rem 0 2.8rem; }
+.noria-principles article { padding: 0 2.5rem; border-left: 1px solid var(--line); }
+.noria-principles article:first-child { border-left: 0; padding-left: 0; }
+.noria-principles article:last-child { padding-right: 0; }
+.noria-number { font-family: var(--font-mono); font-size: .68rem; color: var(--signal); text-transform: uppercase; letter-spacing: .05em; }
+.noria-principles h2 { font-size: 1.8rem; margin: .9rem 0 .7rem; letter-spacing: -.025em; }
+.noria-principles p { font-size: .9rem; color: var(--muted); }
+.noria-quota { display: grid; gap: 3rem; padding-top: 6.5rem; padding-bottom: 6rem; }
+.noria-section-heading { max-width: 42rem; }
+.noria-section-heading h2 { font-size: clamp(2.8rem, 4.4vw, 4.4rem); margin: 1.2rem 0 1.5rem; line-height: 1.05; }
+.noria-section-heading > p:not(.noria-eyebrow) { max-width: 37rem; color: var(--muted); margin-bottom: 1rem; }
+.noria-ledger { margin: 0; border: 1px solid var(--line); background: var(--surface); }
+.noria-ledger figcaption { display: flex; justify-content: space-between; gap: 1rem; padding: 1.2rem 1.6rem; border-bottom: 1px solid var(--line); align-items: center; }
+.noria-ledger figcaption strong { font-weight: 500; }
+.noria-ledger figcaption > span { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: .04em; font-size: .65rem; color: var(--muted); }
+.noria-ledger__scroll { overflow: auto; }
+.noria-ledger table { width: 100%; border-collapse: collapse; font-size: .87rem; text-align: left; }
+.noria-ledger th, .noria-ledger td { padding: 1.2rem 1.6rem; border-bottom: 1px solid var(--line); }
+.noria-ledger thead th { font-family: var(--font-mono); color: var(--muted); font-size: .65rem; font-weight: 400; text-transform: uppercase; letter-spacing: .03em; }
+.noria-ledger td strong { font-weight: 500; display: block; }
+.noria-ledger td > span:not(.noria-tag) { display: block; margin-top: .2rem; color: var(--muted); font-size: .77rem; }
+.noria-ledger__preferred { background: var(--noria-tint); }
+.noria-account { display: grid; place-items: center; width: 2.2rem; height: 2.2rem; border: 1px solid var(--line); border-radius: 50%; font-family: var(--font-mono); font-size: .85rem; font-weight: 400; }
+.noria-tag { display: inline-block; color: var(--signal); font-family: var(--font-mono); font-size: .65rem; padding: .3rem .55rem; border: 1px solid var(--signal); }
+.noria-ledger__note { font-size: .8rem; color: var(--muted); max-width: 61rem; padding: 1.2rem 1.6rem; }
+.noria-cache { display: grid; grid-template-columns: 1fr 1fr; gap: 6rem; border-top: 1px solid var(--line); padding-top: 6rem; padding-bottom: 6rem; align-items: center; }
+.noria-cache__diagram { border: 1px solid var(--line); padding: 2.5rem; background: var(--noria-tint); }
+.noria-route-step { display: flex; gap: 1.3rem; align-items: center; margin-top: 2rem; }
+.noria-route-step__marker { display: grid; place-items: center; flex-shrink: 0; width: 3.3rem; height: 3.3rem; border: 1px solid var(--muted); border-radius: 50%; font-family: var(--font-heading); font-size: 1.8rem; }
+.noria-route-step strong { font-weight: 500; font-size: .93rem; }
+.noria-route-step p { color: var(--muted); font-size: .8rem; }
+.noria-route-divider { display: flex; align-items: center; gap: 1rem; margin: 1.7rem 0 0 1.6rem; padding-left: 2.9rem; color: var(--signal); font-size: .68rem; font-family: var(--font-mono); }
+.noria-cache__caption { border-top: 1px solid var(--line); margin-top: 2rem; padding-top: 1.3rem; font-size: .75rem; color: var(--muted); }
+.noria-native { display: grid; grid-template-columns: 1.4fr 1fr; gap: 5rem; padding: 3rem; background: var(--noria-tint); border: 1px solid var(--line); }
+.noria-native h2 { font-size: 2.65rem; margin: 1rem 0; }
+.noria-native > div > p:not(.noria-eyebrow) { color: var(--muted); font-size: .93rem; }
+.noria-native__commands { border-left: 1px solid var(--line); padding-left: 3rem; align-content: center; min-width: 0; }
+.noria-native__commands pre { font-family: var(--font-mono); font-size: .94rem; line-height: 2; overflow: auto; margin: 1rem 0; }
+.noria-start { padding-top: 7rem; padding-bottom: 7rem; text-align: center; }
+.noria-start h2 { font-size: clamp(3.4rem, 5.4vw, 5.5rem); margin: 1.3rem 0 2rem; }
+.noria-start .noria-actions { justify-content: center; }
+.noria-start > p:last-child { color: var(--muted); font-size: .8rem; margin-top: 1.8rem; }
+.noria-release-note { border-top: 1px solid var(--line); margin-top: 2rem; padding-top: 1.3rem; font-size: .8rem; color: var(--muted); max-width: 40rem; }
+.noria-release-note a { text-decoration: underline; }
+
+/* Keep the shared documentation shell; tune its type and paper palette. */
+.docs-index-hero { padding-top: 5rem; padding-bottom: 3.5rem; }
+.docs-index-hero h1 { max-width: 50rem; font-size: clamp(3rem, 5vw, 5rem); line-height: 1.05; }
+.docs-index-hero > p:last-child { max-width: 45rem; }
+.docs-index__card { background: transparent; border-radius: 0; }
+.docs-index__card h2 { font-size: 1.8rem; }
+.docs-index__card:hover { background: var(--surface-muted); }
+.docs-index__group { border-color: var(--line); }
+.docs-shell { grid-template-columns: 190px minmax(0, 1fr) 160px; gap: 2.5rem; }
+.docs-article { min-width: 0; }
+.docs-hero h1 { font-size: 3.7rem; letter-spacing: -.04em; font-weight: 400; }
+.docs-copy { font-size: 1rem; line-height: 1.8; }
+.docs-copy h2 { font-size: 2.1rem; font-weight: 400; letter-spacing: -.025em; }
+.docs-copy h3 { font-family: var(--font-sans); font-size: 1.2rem; font-weight: 500; }
+.docs-copy a { color: var(--signal); }
+.docs-copy table { font-size: .87rem; }
+.docs-copy pre { max-width: 100%; }
+.docs-sidebar__link.is-active { color: var(--signal); border-color: var(--signal); }
+.docs-sidebar__group > p, .section-label { font-family: var(--font-mono); font-size: .67rem; }
+
+@media (min-width: 1400px) {
+  .noria-hero { padding-top: 7rem; padding-bottom: 6.5rem; }
+}
+@media (max-width: 1050px) {
+  .noria-hero { gap: 2.5rem; padding-top: 4rem; }
+  .noria-hero h1 { font-size: 5.2rem; }
+  .noria-terminal pre { font-size: .69rem; padding: 1.4rem 1.1rem; }
+  .noria-principles article { padding: 0 1.5rem; }
+  .noria-cache { gap: 3rem; }
+  .noria-cache__diagram { padding: 1.8rem; }
+  .noria-ledger th, .noria-ledger td { padding: 1rem; }
+  .docs-shell { grid-template-columns: 175px minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .shell, .site-header--docs .site-header__inner { width: calc(100% - 2.5rem); }
+  .site-header__inner { min-height: 4.8rem; gap: .7rem; }
+  .site-header__actions { gap: .6rem; }
+  .brand__strapline { display: none; }
+  .brand__name { font-size: 1.8rem; }
+  .site-nav__link { font-size: .8rem; }
+  .site-nav { gap: .75rem; }
+  .noria-hero { grid-template-columns: 1fr; gap: 3rem; padding-top: 3.4rem; padding-bottom: 3rem; }
+  .noria-hero h1 { font-size: clamp(4.7rem, 13vw, 6.5rem); }
+  .noria-hero__lede { max-width: 34rem; }
+  .noria-workbench { max-width: 36rem; width: 100%; }
+  .noria-terminal pre { font-size: .8rem; }
+  .noria-principles { grid-template-columns: 1fr; padding: 0; }
+  .noria-principles article, .noria-principles article:first-child, .noria-principles article:last-child { padding: 1.8rem 0; border-left: 0; border-bottom: 1px solid var(--line); }
+  .noria-principles article:last-child { border-bottom: 0; }
+  .noria-principles h2 { font-size: 2rem; }
+  .noria-quota { padding-top: 4rem; padding-bottom: 4rem; gap: 2rem; }
+  .noria-ledger figcaption { align-items: flex-start; flex-direction: column; padding: 1rem; gap: .3rem; }
+  .noria-ledger table { min-width: 610px; }
+  .noria-ledger__note { padding: 1rem; }
+  .noria-cache { grid-template-columns: 1fr; gap: 2rem; padding-top: 4rem; padding-bottom: 4rem; }
+  .noria-cache__diagram { order: 2; padding: 2rem; }
+  .noria-native { grid-template-columns: 1fr; gap: 1.7rem; padding: 1.8rem; }
+  .noria-native h2 { font-size: 2.5rem; }
+  .noria-native__commands { border-left: 0; border-top: 1px solid var(--line); padding-left: 0; padding-top: 1.5rem; }
+  .noria-start { padding-top: 4.5rem; padding-bottom: 4.5rem; }
+  .docs-index-hero { padding-top: 3rem; }
+  .docs-hero h1 { font-size: 3rem; }
+  .docs-shell { display: block; }
+  .docs-copy { font-size: .95rem; }
+}
+@media (max-width: 420px) {
+  .site-header__actions { gap: .35rem; }
+  .site-header .brand { gap: .5rem; }
+  .brand__logo { width: 1.6rem; height: 1.6rem; }
+  .site-nav__link { font-size: .73rem; }
+  .noria-terminal pre { font-size: .67rem; }
+  .noria-actions { gap: 1.2rem; }
+  .noria-cache__diagram { padding: 1.3rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .noria-hero__copy, .noria-workbench { animation: noria-arrive .6s ease-out both; }
+  .noria-workbench { animation-delay: .1s; }
+  @keyframes noria-arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

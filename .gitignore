@@ -16,3 +16,8 @@ npm-debug.log*
 /docs/.astro/
 /docs/dist/
 /docs/.vercel/
+
+# Local agent artifacts and runtime state
+/tmp/
+/.vercel/
+/.noria/
