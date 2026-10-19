@@ -125,6 +125,7 @@ jobs:
     needs: npm-publish
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
@@ -137,6 +138,7 @@ jobs:
         env:
           NORIA_REQUIRE_PREBUILT: "1"
         run: |
+          node scripts/wait-registry.js "${GITHUB_REF_NAME#v}"
           npm install --global "@amxv/noria@${GITHUB_REF_NAME#v}"
           noria --version
           noria --help
