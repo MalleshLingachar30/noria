@@ -29,3 +29,9 @@ test("local build assets retain both OS and architecture", () => {
   assert.ok(makefile.includes('"windows arm64"'));
   assert.ok(!makefile.includes('$$GOOS_'), "shell would expand nonexistent GOOS_ and overwrite another platform");
 });
+
+test("local cross-build output preserves both OS and architecture", () => {
+  const make = fs.readFileSync(path.join(root, "Makefile"), "utf8");
+  assert.ok(make.includes("$${GOOS}_$${GOARCH}"));
+  assert.ok(make.includes("\"windows arm64\""));
+});

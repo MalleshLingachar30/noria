@@ -26,7 +26,7 @@ import "../styles/global.css";
       </div>
 
       <div class="noria-workbench">
-        <div class="noria-terminal" aria-label="Example Codex setup commands">
+        <div class="noria-terminal" role="group" aria-label="Example Codex setup commands">
           <div class="noria-terminal__bar"><span aria-hidden="true">● ● ●</span><span>your terminal</span><span>01</span></div>
           <pre><code><span class="noria-terminal__comment"># Install the local router</span>
 <span class="noria-terminal__prompt">$</span> npm install -g @amxv/noria
@@ -40,7 +40,7 @@ import "../styles/global.css";
 <span class="noria-terminal__comment"># Start the gateway in this terminal</span>
 <span class="noria-terminal__prompt">$</span> noria serve</code></pre>
         </div>
-        <div class="noria-session" aria-label="Illustrative session routing">
+        <div class="noria-session" role="group" aria-label="Illustrative session routing">
           <p class="noria-eyebrow">Session affinity / illustrated</p>
           <div class="noria-session__path"><span>Session 01</span><span aria-hidden="true">→</span><strong>Account A</strong></div>
           <div class="noria-session__requests" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
@@ -78,7 +78,7 @@ import "../styles/global.css";
     </section>
 
     <section class="shell noria-cache" aria-labelledby="cache-title">
-      <div class="noria-cache__diagram" aria-label="A session changes accounts only after an applicable limit">
+      <div class="noria-cache__diagram" role="group" aria-label="A session changes accounts only after an applicable limit">
         <p class="noria-eyebrow">A session’s route</p>
         <div class="noria-route-step"><span class="noria-route-step__marker">A</span><div><strong>Start. Stay. Keep working.</strong><p>Account A’s cache remains account-local.</p></div></div>
         <div class="noria-route-divider"><span>Applicable limit reached</span><span aria-hidden="true">↓</span></div>
