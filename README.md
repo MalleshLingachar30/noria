@@ -53,7 +53,7 @@ The bridge uses `@anthropic-ai/claude-agent-sdk@0.3.287` and an experimental usa
 
 Noria does not create quota, buy credits, redeem resets, or enable paid fallback. If every matching account is unavailable, it reports that and reset information when known. A forced switch starts with a cold cache on the replacement account. A partially delivered generation cannot be transparently spliced, and cross-account continuation can depend on state held by the provider.
 
-**Live multi-account workflows have not yet been validated.** Automated local tests use fake credentials and test upstreams. See [compatibility and validation](https://noria.ashray.xyz/docs/troubleshooting#compatibility-and-validation) before relying on a pool.
+**Live multi-account workflows have not yet been validated.** Installed Codex and Claude clients pass local tests that resume saved conversations, force a quota rejection on one account, and continue on another while retaining prior turns. These tests use fake credentials and test upstreams, not live subscription capacity. See [compatibility and validation](https://noria.ashray.xyz/docs/troubleshooting#compatibility-and-validation) before relying on a pool.
 
 `noria status`, `noria doctor`, and `noria quota refresh` help inspect setup. `noria env` intentionally prints the local gateway secret; do not share its output. `account remove` unregisters an account but retains its native profile credentials/history.
 

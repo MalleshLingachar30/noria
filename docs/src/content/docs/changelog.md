@@ -12,8 +12,9 @@ Initial Noria release.
 
 - Local Go CLI and loopback gateway for explicitly authorized native Codex and Claude account pools.
 - Account registration, isolated native login profiles, enable/disable/remove controls, quota refresh, status, doctor, and native client wrappers.
-- Hard session affinity with persisted bindings; reset-aware initial and failover placement considers independent five-hour/weekly windows, scoped limits, learned consumption, and in-flight reservations.
+- Hard session affinity with persisted bindings; reset-aware initial and failover placement considers independent five-hour/weekly windows, scoped limits, learned window-specific consumption, in-flight reservations, and recent bound-session demand.
 - Native HTTP/SSE forwarding and Codex WebSocket handling, with bounded safe retries before output is committed. Requests retain their model, settings, and continuation data.
+- Token refresh is serialized per isolated account; valid tokens and failover are not held up by passive quota reads.
 - Random local gateway authentication, Host/Origin checks, private state, and credential-free status diagnostics.
 - Embedded Claude usage bridge with explicit installation of pinned `@anthropic-ai/claude-agent-sdk@0.3.287`; Node is required and the usage method is experimental.
 - Native binary distribution through GitHub Releases and the `@amxv/noria` npm wrapper. Apache-2.0 license.
