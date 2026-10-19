@@ -22,14 +22,14 @@ import "../styles/global.css";
           <a class="button button--solid" href="/docs/quickstart">Install Noria <span aria-hidden="true">↗</span></a>
           <a class="noria-text-link" href="/docs/scheduling">Understand the routing <span aria-hidden="true">→</span></a>
         </div>
-        <p class="noria-hero__footnote">v0.2.0 · Open source · No paid fallback or model swaps</p>
+        <p class="noria-hero__footnote">v0.3.0 · Native installer · No paid fallback or model swaps</p>
       </div>
 
       <div class="noria-workbench">
         <div class="noria-terminal" role="group" aria-label="Example Codex setup commands">
           <div class="noria-terminal__bar"><span aria-hidden="true">● ● ●</span><span>your terminal</span><span>01</span></div>
           <pre><code><span class="noria-terminal__comment"># One-time setup</span>
-<span class="noria-terminal__prompt">$</span> npm install -g @amxv/noria
+<span class="noria-terminal__prompt">$</span> curl -fsSL https://noria.ashray.xyz/install.sh | sh
 <span class="noria-terminal__prompt">$</span> noria account add codex
 <span class="noria-terminal__prompt">$</span> noria start
 <span class="noria-terminal__prompt">$</span> noria integrate codex --yes

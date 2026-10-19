@@ -10,7 +10,6 @@ concurrency:
 
 env:
   GO_VERSION: "1.26.4"
-  NODE_VERSION: "24"
   CLI_BINARY: "noria"
   CLI_ENTRYPOINT: "noria"
   CLI_MODULE: "github.com/amxv/noria"
@@ -28,27 +27,22 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.0"
       - name: Validate version and source
         run: |
-          node scripts/check-release.js "$GITHUB_REF_NAME"
+          python3 scripts/release.py check "$GITHUB_REF_NAME"
           go mod verify
           go test -race ./...
           go vet ./...
-          npm test
+          make lint
           test -z "$(gofmt -l cmd internal)"
       - name: Check and build documentation
         run: |
           make docs-install
           make docs-check
           make docs-build
-      - name: Inspect npm package
-        run: npm pack --dry-run
 
   build-binaries:
     needs: quality
@@ -138,7 +132,7 @@ jobs:
           test "$(find dist -maxdepth 1 -type f -name 'noria_darwin_*.tar.gz' | wc -l)" -eq 2
           (cd dist && sha256sum noria_* > SHA256SUMS)
           cp LICENSE THIRD_PARTY_NOTICES.md dist/
-          node scripts/release-notes.js > release-notes.md
+          python3 scripts/release.py notes "$GITHUB_REF_NAME" > release-notes.md
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
@@ -147,22 +141,8 @@ jobs:
           files: dist/*
           fail_on_unmatched_files: true
 
-  npm-publish:
-    needs: github-release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          registry-url: "https://registry.npmjs.org"
-      - name: Publish to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
   install-smoke:
-    needs: npm-publish
+    needs: github-release
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -170,15 +150,44 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - name: Install the published package and check the native entrypoint
+      - name: Verify native install on macOS and Linux
+        if: runner.os != 'Windows'
         shell: bash
-        env:
-          NORIA_REQUIRE_PREBUILT: "1"
         run: |
-          node scripts/wait-registry.js "${GITHUB_REF_NAME#v}"
-          npm install --global "@amxv/noria@${GITHUB_REF_NAME#v}"
-          noria --version
-          noria --help
+          set -euo pipefail
+          export NORIA_VERSION="${GITHUB_REF_NAME#v}"
+          export NORIA_HOME="$RUNNER_TEMP/noria-smoke"
+          export NORIA_INSTALL_DIR="$RUNNER_TEMP/noria-install"
+          export NORIA_NO_LAUNCH=1
+          sh scripts/install.sh
+          "$NORIA_INSTALL_DIR/noria" --version | grep -Fx "noria $NORIA_VERSION"
+          "$NORIA_INSTALL_DIR/noria" --help
+          "$NORIA_INSTALL_DIR/noria" status --json
+          "$NORIA_INSTALL_DIR/noria" upgrade --check --json
+          if [ "$RUNNER_OS" = macOS ]; then
+            codesign --verify --deep --strict "$NORIA_INSTALL_DIR/Noria.app"
+            "$NORIA_INSTALL_DIR/Noria.app/Contents/MacOS/noria-menubar" --check
+            "$NORIA_INSTALL_DIR/Noria.app/Contents/MacOS/noria-menubar" --validate-status-json apps/menubar/Tests/status.json
+          fi
+      - name: Verify native Windows install
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:NORIA_VERSION = $env:GITHUB_REF_NAME.Substring(1)
+          $env:NORIA_HOME = Join-Path $env:RUNNER_TEMP 'noria-smoke'
+          $env:NORIA_INSTALL_DIR = Join-Path $env:RUNNER_TEMP 'noria-install'
+          & ./scripts/install.ps1
+          $exe = Join-Path $env:NORIA_INSTALL_DIR 'noria.exe'
+          if ((& $exe --version) -ne "noria $env:NORIA_VERSION") { throw 'Native install version mismatch' }
+          & $exe --help
+          & $exe status --json | ConvertFrom-Json | Out-Null
+          & $exe upgrade --check --json | ConvertFrom-Json | Out-Null
+          # A running Windows executable cannot safely replace itself.
+          # Exercise the detached new-binary helper against a private copy;
+          # this must never modify an actual user installation.
+          $pending = Join-Path $env:NORIA_INSTALL_DIR '.noria-upgrade-test.exe'
+          Copy-Item $exe $pending
+          & $pending __apply-windows-upgrade $exe 'false' $env:NORIA_VERSION --home $env:NORIA_HOME
+          if ($LASTEXITCODE -ne 0) { throw 'Native deferred Windows upgrade helper failed' }
+          $report = Get-Content (Join-Path $env:NORIA_HOME 'upgrade.json') -Raw | ConvertFrom-Json
+          if (-not $report.updated) { throw 'Native Windows upgrade did not commit its state' }

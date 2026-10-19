@@ -27,15 +27,21 @@ jobs:
         with:
           go-version: "1.26.4"
           cache: true
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-python@v5
         with:
-          node-version: "24"
+          python-version: "3.12"
       - name: Go tests
         run: go test -race ./...
       - name: Go vet
         run: go vet ./...
-      - name: Node installer and project tests
-        run: npm test
+      - name: Native installer and release tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          sh -n scripts/install.sh
+          diff -q scripts/install.sh docs/public/install.sh
+          diff -q scripts/install.ps1 docs/public/install.ps1
+          python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Build
         shell: bash
         run: |
@@ -47,6 +53,16 @@ jobs:
         env:
           NORIA_TEST_SKIP_LOGIN: "1"
         run: python3 scripts/test-service-smoke.py
+      - name: Windows PowerShell installer syntax
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PWD 'scripts/install.ps1'), [ref]$tokens, [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) { throw ($errors | Out-String) }
 
   docs:
     runs-on: ubuntu-latest

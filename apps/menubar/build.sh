@@ -3,7 +3,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 out="${1:-$root/dist/Noria.app}"
 arch="${2:-arm64}"
-version="${NORIA_VERSION:-$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$root/package.json" | head -1)}"
+version="${NORIA_VERSION:-$(cat "$root/VERSION")}"
 case "$arch" in arm64|x86_64) ;; *) echo 'unsupported macOS architecture' >&2; exit 1;; esac
 case "$out" in /|"$HOME"|"$root") echo 'unsafe app build target' >&2; exit 1;; esac
 mkdir -p "$out/Contents/MacOS"

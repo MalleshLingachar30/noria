@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/amxv/noria/internal/config"
+	"github.com/amxv/noria/internal/model"
 )
 
 func TestStatusDoesNotExposeSecret(t *testing.T) {
@@ -48,12 +49,25 @@ func TestAccountRemoveRetainsProfileAndConfigRejectsTraversal(t *testing.T) {
 	h := t.TempDir()
 	t.Setenv("NORIA_HOME", h)
 	var out, errs bytes.Buffer
-	for _, args := range [][]string{{"init"}, {"account", "add", "a", "--provider", "codex"}, {"account", "remove", "a"}} {
+	for _, args := range [][]string{{"init"}} {
 		if e := Run(args, &out, &errs); e != nil {
 			t.Fatal(e)
 		}
 	}
-	if _, e := os.Stat(filepath.Join(h, "accounts", "a")); e != nil {
+	profile := filepath.Join(h, "accounts", "account-stable")
+	if e := config.PrivateDir(profile); e != nil {
+		t.Fatal(e)
+	}
+	if e := config.Change(h, func(c *config.Config) error {
+		c.Accounts = []model.Account{{ID: "account-stable", Email: "a@example.com", Provider: "codex", Profile: profile, Enabled: true, Authenticated: true}}
+		return nil
+	}); e != nil {
+		t.Fatal(e)
+	}
+	if e := Run([]string{"account", "remove", "account-stable"}, &out, &errs); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := os.Stat(profile); e != nil {
 		t.Fatal("remove erased credentials/history")
 	}
 	if e := Run([]string{"account", "add", "../bad", "--provider", "codex"}, &out, &errs); e == nil {

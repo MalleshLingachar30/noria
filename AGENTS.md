@@ -22,4 +22,4 @@ Code files should stay below 1000 lines. Add tests for lifecycle idempotence, co
 
 Use the Zodex-style checksum-verified CLI download/extract path with an ad-hoc signed macOS app. Never disable Gatekeeper, clear quarantine, or claim Developer ID notarization. Browser downloads and managed policies may differ. macOS CLI and Noria.app are sibling artifacts.
 
-Update package.json and manual changelog, verify CI, then push the release tag. Confirm six binaries, two macOS archives, checksums, npm install smoke, and docs deployment. Never publish from a concurrently changing checkout or discard someone else's worktree changes.
+Update VERSION and the manual changelog, verify CI, then push the release tag. Confirm six binaries, two macOS archives, checksums, native installer smoke tests, and docs deployment. Never publish from a concurrently changing checkout or discard someone else's worktree changes.

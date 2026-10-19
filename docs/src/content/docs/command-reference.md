@@ -36,7 +36,7 @@ noria quota refresh
 
 Email is the default name. Use an immutable ID when an email/alias is ambiguous. Remove retains isolated profile files for recovery.
 
-Advanced automation can create an unsigned-in profile using `noria account add <id> --provider codex|claude`, then `noria account login <id>`.
+New accounts are always created with `noria account add codex` or `noria account add claude`, which starts the native browser sign-in. Stable IDs are generated automatically. Use `noria account relogin <id>` if a sign-in was interrupted.
 
 ## Persistent client setup
 
@@ -66,8 +66,8 @@ The menu is macOS-only. Background lifecycle works on macOS, Linux, and Windows.
 ## Updates and advanced helpers
 
 ```sh
-noria update --check
-noria update
+noria upgrade --check
+noria upgrade
 ```
 
 Verified updates defer while requests or streaming connections are active. The menu's automatic checks call this same CLI operation.

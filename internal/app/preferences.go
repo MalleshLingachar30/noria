@@ -12,7 +12,7 @@ import (
 	"runtime"
 )
 
-func preferencesCommand(home, op string, args []string, out io.Writer) error {
+func preferencesCommand(home string, args []string, out io.Writer) error {
 	asJSON := false
 	filtered := []string{}
 	for _, v := range args {
@@ -24,14 +24,8 @@ func preferencesCommand(home, op string, args []string, out io.Writer) error {
 	}
 	args = filtered
 	if len(args) > 0 && isHelp(args[0]) {
-		fmt.Fprintln(out, "Usage: noria preferences [start-at-login|menubar-at-login|auto-update on|off] [--json]\n       noria autostart on|off\nAll preferences are owned by the CLI. Quitting the menu bar does not stop routing.")
+		fmt.Fprintln(out, "Usage: noria preferences [start-at-login|menubar-at-login|auto-update on|off] [--json]\nAll preferences are owned by the CLI. Quitting the menu bar does not stop routing.")
 		return nil
-	}
-	if op == "autostart" {
-		if len(args) != 1 {
-			return errors.New("usage: noria autostart on|off")
-		}
-		args = append([]string{"start-at-login"}, args...)
 	}
 	if e := config.Init(home); e != nil {
 		return e

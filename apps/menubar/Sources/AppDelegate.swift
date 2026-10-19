@@ -151,7 +151,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func setPreference(_ key: String, enabled: Bool) { mutate(["preferences", key, enabled ? "on" : "off", "--json"]) }
     private func authenticate(provider: String, account: AccountStatus?) {
         guard loginProcess == nil else { return }
-        let arguments = account.map { ["account", "login", $0.id, "--json"] } ?? ["account", "add", provider, "--json"]
+        let arguments = account.map { ["account", "relogin", $0.id, "--json"] } ?? ["account", "add", provider, "--json"]
         loginProcess = cli.run(arguments, timeout: 310) { [weak self] result in
             guard let self else { return }; self.loginProcess = nil
             if result.status != 0 { self.alert("Sign-in did not complete", result.error) }
@@ -195,7 +195,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     private func checkUpdate(automatic: Bool) {
         guard !updateInFlight, loginProcess == nil, !mutationInFlight else { return }; updateInFlight = true; render()
-        let arguments = automatic ? ["update", "--automatic", "--json"] : ["update", "--check", "--json"]
+        let arguments = automatic ? ["upgrade", "--automatic", "--json"] : ["upgrade", "--check", "--json"]
         cli.run(arguments, timeout: 185) { [weak self] result in
             guard let self else { return }; self.updateInFlight = false
             guard result.status == 0 else { if !automatic { self.alert("Update check failed", result.error) }; self.render(); return }
@@ -211,7 +211,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     private func applyUpdate() {
         updateInFlight = true; render()
-        cli.run(["update", "--json"], timeout: 185) { [weak self] result in
+        cli.run(["upgrade", "--json"], timeout: 185) { [weak self] result in
             guard let self else { return }; self.updateInFlight = false
             if result.status != 0 { self.alert("Update failed", result.error) }
             else if let update = try? decodeJSON(UpdateResult.self, from: result.output) {

@@ -3,11 +3,12 @@
 /bin/*-bin
 /bin/*.exe
 
-# Node/npm
-/node_modules/
+# Documentation build dependencies (Bun)
 /docs/node_modules/
 *.tgz
-npm-debug.log*
+
+# Local Python release validation
+/scripts/__pycache__/
 
 # macOS
 .DS_Store

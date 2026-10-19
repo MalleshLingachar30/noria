@@ -13,7 +13,6 @@ type Account struct {
 	Profile       string    `json:"profile"`
 	Enabled       bool      `json:"enabled"`
 	Endpoint      string    `json:"endpoint,omitempty"`
-	Models        []string  `json:"models,omitempty"`
 }
 
 type Window struct {

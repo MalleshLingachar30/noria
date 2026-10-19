@@ -1,39 +1,30 @@
 # Contributing to Noria
 
-Noria is a local native Codex/Claude account gateway, distributed as `@amxv/noria`. Start with the [development guide](https://noria.ashray.xyz/docs/development) and [routing contract](https://noria.ashray.xyz/docs/scheduling).
+Noria is a local Go gateway for native Codex and Claude Code accounts, released as standalone binaries with checksum-verified install scripts. Start with the [development guide](https://noria.ashray.xyz/docs/development) and [routing contract](https://noria.ashray.xyz/docs/scheduling).
 
-## Prerequisites and checks
+## Develop and validate
 
-Use the Go version in `go.mod`, Node.js for the npm wrapper and script checks, and Bun for the isolated docs workspace. Native clients are required for interactive use; automated tests substitute fake processes and upstreams. Claude quota reads invoke the installed native binary directly; no Node.js or Agent SDK bridge is required.
+Install the Go version required by `go.mod`. Python 3 runs native release checks; Bun is required only to build the documentation website. End users need none of these build tools.
 
-```bash
+```sh
 make check
 go test -race ./...
 make build
-./dist/noria --help
 make docs-install
 make docs-check
 make docs-build
 ```
 
-Run `make docs-check` then `make docs-build` serially. For site work use `make docs-dev`; keep all web tooling in `docs/` and shared layouts imported from ZueDocs.
+Run Astro docs checks serially. Application tests must always isolate `HOME`, `NORIA_HOME`, `CODEX_HOME`, and `CLAUDE_CONFIG_DIR`, using fake credentials and upstreams. Never touch real subscription accounts, provider configuration or conversation history in automated tests.
 
-## Isolation and behavior
+Preserve hard session affinity, independently timed quota windows, atomic admission and reservations, native protocol fidelity, and safe failover before output is committed. Never move healthy sessions because a score changes. Don't include tokens, auth files, transcripts, or the output of `noria auth-token` in logs.
 
-Never use actual developer auth, histories, or native config roots in automated tests. Set temporary `HOME`, `NORIA_HOME`, `CODEX_HOME`, and `CLAUDE_CONFIG_DIR`; use fake credentials, fake native executables, and HTTP/WebSocket test upstreams. Do not run real login flows or spend live quota during automated validation.
+## Native releases
 
-Preserve hard session affinity, independent reset windows, atomic reservations, and request/model/provider fidelity. Do not move healthy sessions because scores change or a reset happens elsewhere. Retry only when safe before output is committed. Do not replay delivered tools or claim arbitrary midstream splicing.
+Update `VERSION` and the manually curated `docs/src/content/docs/changelog.md` together. Run tests and verify the macOS arm64/x86_64 menu bar builds and ad-hoc signatures. Check both native installers and all six cross-platform binaries.
 
-Account authentication profiles are isolated under Noria’s home. Normal `noria run` clients retain their existing conversation/config roots with child-only overrides. Do not persistently edit normal native settings to make a test pass.
+From a clean `main` branch, push the changes, then use `make release-tag VERSION=x.y.z`. GitHub Actions builds binaries and apps, writes SHA-256 checksums, publishes GitHub Releases, and tests fresh installs on macOS, Linux, and Windows. Noria does not publish a JS or npm package.
 
-No request-content or token logs. Do not include secrets, auth files, transcripts, or `noria env` output in reports. Label fake-upstream results accurately; live multi-account validation remains a separate explicit activity.
+macOS installation follows Zodex's checksum-verified curl/tar pattern for its ad-hoc-signed `.app`. We never disable Gatekeeper or remove quarantine from downloaded files. The docs site auto-deploys through Vercel from the `docs/` root.
 
-## Releases
-
-Update `docs/src/content/docs/changelog.md` with the real behavior and release date. Reconcile command help, SDK pin, wrappers, and transport caveats. Run the checks above and verify release-platform builds and npm contents.
-
-After maintainer review, stage, commit, and push the release changes, then use `make release-tag VERSION=x.y.z`. This pushes a `v*` tag and triggers GitHub Actions to publish native assets and npm. The workflow needs its npm publishing credential (`NPM_TOKEN`). Never commit or print credentials.
-
-Keep asset names `noria_<goos>_<goarch>[.exe]` and installed paths `bin/noria-bin[.exe]` consistent with the workflow and postinstall script. The docs site uses canonical URL `https://noria.ashray.xyz`, Vercel Root Directory `docs`, and output `docs/dist`.
-
-See the [release guide](https://noria.ashray.xyz/docs/release-and-npm) and repository release skill. Contributions are under Apache-2.0.
+See the [installation and upgrade reference](https://noria.ashray.xyz/docs/installation-and-upgrades/) and repository release skill. Contributions are licensed under Apache-2.0.

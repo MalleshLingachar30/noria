@@ -50,8 +50,8 @@ Use `off` to disable a preference. macOS may ask you to approve a login item in 
 ## Updates
 
 ```bash
-noria update --check
-noria update
+noria upgrade --check
+noria upgrade
 ```
 
 The updater verifies checksums and stages the new binary before replacement. The macOS CLI and menu app update together. Active requests take priority: a busy router defers applying the update rather than cancelling a generation. Automatic checks run from the service as well as through the menu's CLI actions.

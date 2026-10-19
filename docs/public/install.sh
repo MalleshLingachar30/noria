@@ -4,9 +4,14 @@ set -eu
 # ad-hoc signed app, no browser quarantine metadata and no security overrides.
 repo='https://github.com/amxv/noria'
 install_dir=${NORIA_INSTALL_DIR:-"$HOME/.local/bin"}
-case "$(uname -s)" in Darwin) os=darwin;; Linux) os=linux;; *) echo 'Use npm install -g @amxv/noria or the Windows binary on Windows.' >&2; exit 1;; esac
+case "$(uname -s)" in Darwin) os=darwin;; Linux) os=linux;; *) echo 'On Windows use https://noria.ashray.xyz/install.ps1' >&2; exit 1;; esac
 case "$(uname -m)" in arm64|aarch64) arch=arm64;; x86_64|amd64) arch=amd64;; *) echo 'Unsupported CPU architecture' >&2; exit 1;; esac
+case "$install_dir" in /*) ;; *) echo 'NORIA_INSTALL_DIR must be absolute' >&2; exit 1;; esac
 for tool in curl tar; do command -v "$tool" >/dev/null 2>&1 || { echo "$tool is required" >&2; exit 1; }; done
+if [ -e "$install_dir/noria" ] || [ -L "$install_dir/noria" ] || [ -e "$install_dir/Noria.app" ] || [ -L "$install_dir/Noria.app" ]; then
+  echo 'Noria is already installed. Run noria upgrade to update it safely.' >&2
+  exit 1
+fi
 version=${NORIA_VERSION:-}
 if [ -n "$version" ]; then
   version=${version#v}
@@ -36,11 +41,6 @@ if [ "$os" = darwin ]; then
   codesign --verify --deep --strict "$stage/unpacked/Noria.app"
   cp "$stage/unpacked/noria" "$install_dir/.noria-next"
   chmod 755 "$install_dir/.noria-next"
-  if [ -e "$install_dir/Noria.app" ]; then
-    echo 'An existing installation was found. Use noria update to update it safely.' >&2
-    rm -f "$install_dir/.noria-next"
-    exit 1
-  fi
   # Copy the complete signed bundle before changing the CLI entrypoint.
   cp -R "$stage/unpacked/Noria.app" "$install_dir/Noria.app"
 else

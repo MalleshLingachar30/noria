@@ -306,19 +306,8 @@ func (s *Scheduler) reservation(l *Lease) (*reservation, error) {
 	return r, nil
 }
 
-func matches(a model.Account, provider, name string) bool {
-	if !a.Enabled || a.Provider != provider {
-		return false
-	}
-	if len(a.Models) == 0 {
-		return true
-	}
-	for _, m := range a.Models {
-		if m == name {
-			return true
-		}
-	}
-	return false
+func matches(a model.Account, provider, _ string) bool {
+	return a.Enabled && a.Provider == provider
 }
 
 func applicable(scope, name string) bool {

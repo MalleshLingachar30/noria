@@ -210,7 +210,6 @@ func randomID() (string, error) {
 }
 
 func cloneAccount(a model.Account) model.Account {
-	a.Models = append([]string(nil), a.Models...)
 	return a
 }
 

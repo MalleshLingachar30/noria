@@ -6,11 +6,11 @@ category: Reference
 summary: Repository map, local checks, documentation workflow, and behavioral invariants.
 ---
 
-Noria is a Go CLI and local gateway. The npm package distributes the native executable; the documentation lives in a separate Astro/ZueDocs workspace.
+Noria is a Go CLI and local gateway. Its native installers and tagged GitHub releases distribute the executable; the documentation lives in a separate Astro/ZueDocs workspace.
 
 ## Build and check
 
-Use the Go version declared in `go.mod`, Node.js for the npm wrapper checks, and Bun for the docs workspace. Native Codex and Claude executables are needed for interactive use, not for tests that substitute fake processes. Noria invokes the Claude native control protocol directly in Go, without an SDK bridge.
+Use the Go version declared in `go.mod`, Python 3 for native release checks, and Bun for the docs workspace. Native Codex and Claude executables are needed for interactive use, not for tests that substitute fake processes. Noria invokes the Claude native control protocol directly in Go, without an SDK bridge.
 
 ```bash
 git clone https://github.com/amxv/noria.git
@@ -35,7 +35,7 @@ Use `make install-local` to install a local build. `make build-all` builds the c
 | `internal/config/` | Private home, configuration, atomic writes, locks |
 | `internal/model/` | Shared account and quota vocabulary |
 | `internal/buildinfo/` | Version metadata |
-| `bin/`, `scripts/` | npm shim and native-binary installation |
+| `scripts/` | Checksum-verifying macOS/Linux/Windows installers and native release validation |
 | `docs/` | Isolated static docs and marketing site |
 
 ## Preserve the routing contract
@@ -68,4 +68,4 @@ make docs-build
 
 Never run Astro check and build concurrently in the same workspace. Test responsive navigation, theme switching, code copying, search, article links, and `/docs/<slug>.md` raw Markdown routes after a production build.
 
-The canonical site is `https://noria.ashray.xyz`. Vercel should use `docs` as its Root Directory; the site builds into `docs/dist`. See [release and distribution](/docs/release-and-npm) for publishing responsibilities.
+The canonical site is `https://noria.ashray.xyz`. Vercel should use `docs` as its Root Directory; the site builds into `docs/dist`. See [installation and upgrades](/docs/installation-and-upgrades) for publishing responsibilities.

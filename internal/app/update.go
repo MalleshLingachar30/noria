@@ -30,7 +30,7 @@ type updateStatus struct {
 }
 
 func updateCommand(home string, args []string, out, errOut io.Writer) error {
-	f := flags("update", errOut)
+	f := flags("upgrade", errOut)
 	check := f.Bool("check", false, "check without installing")
 	automatic := f.Bool("automatic", false, "respect automatic-update preference and defer while busy")
 	_ = f.Bool("json", false, "print structured status")
@@ -41,12 +41,12 @@ func updateCommand(home string, args []string, out, errOut io.Writer) error {
 		return e
 	}
 	if f.NArg() != 0 {
-		return errors.New("usage: noria update [--check] [--json]")
+		return errors.New("usage: noria upgrade [--check] [--json]")
 	}
 	if e := config.Init(home); e != nil {
 		return e
 	}
-	unlock, e := service.Guard(home, "update")
+	unlock, e := service.Guard(home, "upgrade")
 	if e != nil {
 		return e
 	}
@@ -61,7 +61,7 @@ func updateCommand(home string, args []string, out, errOut io.Writer) error {
 		}
 	}
 	if *automatic {
-		b, _ := os.ReadFile(filepath.Join(home, "update.json"))
+		b, _ := os.ReadFile(filepath.Join(home, "upgrade.json"))
 		var old updateStatus
 		if json.Unmarshal(b, &old) == nil && time.Since(old.CheckedAt) < 6*time.Hour && !old.Available {
 			return nil
@@ -75,7 +75,7 @@ func updateCommand(home string, args []string, out, errOut io.Writer) error {
 	}
 	status := updateStatus{Current: buildinfo.CurrentVersion(), Latest: strings.TrimPrefix(release.Tag, "v"), CheckedAt: time.Now()}
 	status.Available = distribution.Newer(release.Tag, status.Current)
-	record := func() { b, _ := json.Marshal(status); _ = config.Write(filepath.Join(home, "update.json"), b) }
+	record := func() { b, _ := json.Marshal(status); _ = config.Write(filepath.Join(home, "upgrade.json"), b) }
 	if !status.Available || *check {
 		status.Message = "Up to date"
 		if status.Available {
@@ -85,7 +85,7 @@ func updateCommand(home string, args []string, out, errOut io.Writer) error {
 		return printJSON(out, status)
 	}
 	if *automatic {
-		if b, e := os.ReadFile(filepath.Join(home, "update.json")); e == nil {
+		if b, e := os.ReadFile(filepath.Join(home, "upgrade.json")); e == nil {
 			var old updateStatus
 			if json.Unmarshal(b, &old) == nil && old.Updated && time.Since(old.CheckedAt) < time.Hour {
 				return nil
@@ -170,6 +170,21 @@ func updateCommand(home string, args []string, out, errOut io.Writer) error {
 		if e = stopRuntimeForUpdate(home, exe); e != nil {
 			return e
 		}
+	}
+	if runtime.GOOS == "windows" {
+		// Windows cannot reliably rename a currently executing .exe. The already
+		// verified new executable completes the replacement in a separate process
+		// after this invocation has released the image file.
+		if e = scheduleWindowsUpgrade(home, source, exe, running, status.Latest); e != nil {
+			if running {
+				_ = startService(home)
+			}
+			return e
+		}
+		status.Deferred = true
+		status.Message = "Verified upgrade staged. Noria will finish replacing the executable after this command exits."
+		record()
+		return printJSON(out, status)
 	}
 	if e = distribution.Replace(source, exe, 0755); e != nil {
 		if running {

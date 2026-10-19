@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/amxv/noria/internal/buildinfo"
 	"github.com/amxv/noria/internal/host"
 	"github.com/amxv/noria/internal/model"
 	"io"
@@ -60,7 +61,7 @@ func (m *Manager) codexLogin(ctx context.Context, p string) error {
 	}
 	defer func() { _ = in.Close(); killProcess(cmd); _ = cmd.Wait() }()
 	enc := json.NewEncoder(in)
-	if e = enc.Encode(map[string]any{"id": 1, "method": "initialize", "params": map[string]any{"clientInfo": map[string]string{"name": "noria", "version": "0.2.0"}}}); e != nil {
+	if e = enc.Encode(map[string]any{"id": 1, "method": "initialize", "params": map[string]any{"clientInfo": map[string]string{"name": "noria", "version": buildinfo.CurrentVersion()}}}); e != nil {
 		return e
 	}
 	scan := bufio.NewScanner(out)

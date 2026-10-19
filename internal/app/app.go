@@ -50,15 +50,12 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	switch args[0] {
 	case "__menubar-reopen":
 		return delayedMenuHome(home)
-	case "__open-menu":
-		if len(args) != 2 {
-			return errors.New("missing app path")
-		}
-		return delayedMenu(args[1])
-	case "__supervise", "__supervisor":
+	case "__supervise":
 		return service.Supervise(home)
 	case "__daemon":
 		return serve(home, nil, stdout, stderr)
+	case "__apply-windows-upgrade":
+		return applyWindowsUpgrade(home, args[1:], stdout)
 	case "__login":
 		c, e := config.Load(home)
 		if e != nil {
@@ -76,13 +73,13 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return integrateCommand(home, args[1:], stdout, stderr)
 	case "integrations":
 		return integrationsCommand(home, args[1:], stdout)
-	case "preferences", "autostart":
-		return preferencesCommand(home, args[0], args[1:], stdout)
+	case "preferences":
+		return preferencesCommand(home, args[1:], stdout)
 	case "health":
 		return healthCommand(home, args[1:], stdout)
 	case "menubar":
 		return menubar(home, args[1:], stdout, stderr)
-	case "update":
+	case "upgrade":
 		return updateCommand(home, args[1:], stdout, stderr)
 	case "init":
 		if len(args) > 1 && isHelp(args[1]) {
@@ -128,13 +125,13 @@ Usage: noria <command> [arguments]
 
 Commands:
   init                         create private configuration
-  account add|login|list|remove|enable|disable
+  account add|relogin|list|rename|remove|enable|disable
   start | stop | restart       background routing; stop restores direct settings
   integrate codex|claude        preview and install persistent client routing
   integrations [--json]         inspect configured client profiles
   preferences [key on|off]      login and automatic update settings
   menubar open|install          native macOS menu bar
-  update [--check]              verified CLI and menu bar updates
+  upgrade [--check]             verified CLI and menu bar upgrades
   health [--json]               check gateway and client configuration
   status [--json]               inspect accounts and routing
   quota refresh [account]       read native quota without a prompt
@@ -145,17 +142,6 @@ Commands:
 Use <command> --help for command details. NORIA_HOME defaults to ~/.noria.
 Account login is explicit. Noria never imports your existing credentials.
 `)
-}
-
-type stringsFlag []string
-
-func (s *stringsFlag) String() string { return fmt.Sprint([]string(*s)) }
-func (s *stringsFlag) Set(v string) error {
-	if v == "" {
-		return errors.New("model cannot be empty")
-	}
-	*s = append(*s, v)
-	return nil
 }
 
 func printJSON(w io.Writer, v any) error {

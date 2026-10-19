@@ -3,8 +3,15 @@ title: Changelog
 description: Release notes and validation boundaries for Noria.
 order: 11
 category: Reference
-summary: Noria v0.2.0 brings persistent routing and a native menu bar.
+summary: Noria v0.3.0 removes npm distribution and adds the native upgrade command.
 ---
+
+## 0.3.0 · 2026-10-20
+
+- Native-only distribution: the GitHub release installers are the single path for macOS, Linux, and Windows. The Go binary and macOS menu require no Node or npm runtime or installation tooling.
+- `noria upgrade --check` and `noria upgrade` are the CLI-owned upgrade workflow, also used by menu bar manual and automatic updates. Downloads remain checksum-verified and active work delays replacement.
+- Removed the old named-account registration and relogin compatibility path. All new accounts now use browser sign-in, display their email by default, and have optional display-only aliases. No account migrations or duplicate commands.
+- Simplified native release verification, including platform-independent extraction path checks and installer smoke tests.
 
 ## 0.2.0 · 2026-10-20
 

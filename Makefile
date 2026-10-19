@@ -7,20 +7,19 @@ CMD_NAME ?= noria
 CMD_PATH ?= ./cmd/$(CMD_NAME)
 DIST_DIR ?= dist
 BIN_PATH ?= $(DIST_DIR)/$(BIN_NAME)
-VERSION ?= $(shell node -p "require('./package.json').version" 2>/dev/null)
+VERSION ?= $(shell cat VERSION)
 LDFLAGS ?= -s -w -X github.com/amxv/noria/internal/buildinfo.Version=$(if $(VERSION),$(VERSION),dev)
 
-.PHONY: help bootstrap fmt test test-race vet lint check docs-install docs-dev docs-check docs-build docs-preview build build-all install-local clean release-tag
+.PHONY: help fmt test test-race vet lint check docs-install docs-dev docs-check docs-build docs-preview build build-all install-local clean release-tag
 
 help:
 	@echo "Noria development and release commands"
 	@echo ""
 	@echo "Targets:"
-	@echo "  make bootstrap    - initialize CLI, module, repo, npm, docs, and license identity"
 	@echo "  make fmt          - format Go files"
 	@echo "  make test         - run go test ./..."
 	@echo "  make vet          - run go vet ./..."
-	@echo "  make lint         - run Node script checks"
+	@echo "  make lint         - validate native installer and release scripts"
 	@echo "  make check        - fmt + test + vet + lint"
 	@echo "  make docs-install  - install docs dependencies"
 	@echo "  make docs-dev      - run the Astro/ZueDocs dev server"
@@ -32,9 +31,6 @@ help:
 	@echo "  make install-local - install CLI to ~/.local/bin/noria"
 	@echo "  make clean        - remove dist artifacts"
 	@echo "  make release-tag VERSION=x.y.z - create and push a tag for GitHub Actions"
-
-bootstrap:
-	@node scripts/setup.js $(BOOTSTRAP_ARGS)
 
 fmt:
 	@$(GOFMT) -w $$(find cmd internal -type f -name '*.go')
@@ -49,7 +45,10 @@ vet:
 	@$(GO) vet ./...
 
 lint:
-	@npm run lint
+	@sh -n scripts/install.sh
+	@diff -q scripts/install.sh docs/public/install.sh
+	@diff -q scripts/install.ps1 docs/public/install.ps1
+	@python3 -m unittest discover -s scripts -p 'test_*.py'
 
 check: fmt test vet lint
 
@@ -93,5 +92,6 @@ clean:
 
 release-tag:
 	@test -n "$(VERSION)" || (echo "Usage: make release-tag VERSION=x.y.z" && exit 1)
+	@python3 scripts/release.py check "v$(VERSION)"
 	@git tag "v$(VERSION)"
 	@git push origin "v$(VERSION)"

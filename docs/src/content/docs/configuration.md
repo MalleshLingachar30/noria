@@ -17,7 +17,7 @@ summary: "Paths, backups, native controls, and service boundaries."
 | `integrations.json`, `backups/` | Managed routing fields and original settings backups |
 | `service.json`, `daemon.json` | Desired runtime state and live address |
 | `logs/service.log` | Private bounded service diagnostics |
-| `update.json` | Last update check/result |
+| `upgrade.json` | Last upgrade check/result |
 
 Private files have restrictive permissions where supported; Windows also relies on user access controls. Never publish the private home.
 

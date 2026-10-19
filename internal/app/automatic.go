@@ -31,7 +31,7 @@ func startAutomaticUpdates(ctx context.Context, home string, workers *sync.WaitG
 			if e == nil && c.AutoUpdate {
 				exe := service.ReadIntent(home).Executable
 				if exe != "" {
-					command := exec.Command(exe, "update", "--automatic", "--json", "--home", home)
+					command := exec.Command(exe, "upgrade", "--automatic", "--json", "--home", home)
 					command.Stdin = nil
 					command.Stdout = io.Discard
 					command.Stderr = io.Discard

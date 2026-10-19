@@ -16,22 +16,21 @@ Noria runs quietly on your computer. After one-time setup, launch Codex or Claud
 curl -fsSL https://noria.ashray.xyz/install.sh | sh
 ```
 
-An **N** appears in your menu bar. The app lives beside the CLI under `~/.local/bin`; no administrator privileges are needed. The installer verifies the release checksum. Use this CLI installation route rather than dragging a browser-downloaded bundle into Applications. [Installation details](/docs/release-and-npm) explain the macOS distinction.
+An **N** appears in your menu bar. The app lives beside the CLI under `~/.local/bin`; no administrator privileges are needed. The installer verifies the release checksum. Use this CLI installation route rather than dragging a browser-downloaded bundle into Applications. [Installation details](/docs/installation-and-upgrades) explain the macOS distinction.
 
-**On Windows or Linux**, or for a CLI-only setup:
+**On Linux**, the same native installer sets up the Go CLI:
 
 ```sh
-npm install -g @amxv/noria
-noria init
+curl -fsSL https://noria.ashray.xyz/install.sh | sh
 ```
 
-Windows also has a native installer, without npm:
+**On Windows**, run this from PowerShell:
 
 ```powershell
 irm https://noria.ashray.xyz/install.ps1 | iex
 ```
 
-Linux also supports the shell installer. Standalone binaries are on [GitHub Releases](https://github.com/amxv/noria/releases). Install the native `codex` and/or `claude` executable for the providers you use. Node is not required by the standalone Noria binary or its Claude quota reader.
+All three platforms download checksum-verified binaries from [GitHub Releases](https://github.com/amxv/noria/releases). There is no Node or npm prerequisite for Noria. Install the native `codex` and/or `claude` executable for the providers you use.
 
 ## 2. Add your accounts
 
@@ -95,7 +94,7 @@ Open **N** to inspect five-hour and weekly quota remaining and reset times for e
 noria status
 noria stop
 noria start
-noria update
+noria upgrade
 ```
 
 **Stop restores direct routing using each managed client's original saved login.** It does not copy the last-used pool account into that client. Reopen already-running clients after switching routes. If every matching account is exhausted, Noria reports the shortage rather than buying capacity or changing models.

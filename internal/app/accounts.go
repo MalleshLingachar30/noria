@@ -22,7 +22,7 @@ import (
 
 func account(home string, args []string, out, errOut io.Writer) error {
 	if len(args) == 0 || isHelp(args[0]) {
-		fmt.Fprintln(out, "Usage: noria account add codex|claude [--alias NAME] [--json]\n       noria account list [--json]\n       noria account login|enable|disable|remove ACCOUNT [--json]\n       noria account rename ACCOUNT [ALIAS] [--json]\nAccounts display their email by default. Omit ALIAS to remove an alias. ACCOUNT can be an ID, unique email, or unique alias.")
+		fmt.Fprintln(out, "Usage: noria account add codex|claude [--alias NAME] [--json]\n       noria account list [--json]\n       noria account relogin|enable|disable|remove ACCOUNT [--json]\n       noria account rename ACCOUNT [ALIAS] [--json]\nAccounts display their email by default. Omit ALIAS to remove an alias. ACCOUNT can be an ID, unique email, or unique alias.")
 		return nil
 	}
 	for _, arg := range args[1:] {
@@ -44,6 +44,9 @@ func account(home string, args []string, out, errOut io.Writer) error {
 		return e
 	}
 	if args[0] == "list" {
+		if len(args) != 1 {
+			return errors.New("usage: noria account list [--json]")
+		}
 		c, e := config.Load(home)
 		if e != nil {
 			return e
@@ -100,9 +103,8 @@ func account(home string, args []string, out, errOut io.Writer) error {
 		fmt.Fprintln(out, "Added", a.DisplayName())
 		return nil
 	}
-	// Retain v0.1 profile-registration syntax; new users need no invented IDs.
 	if args[0] == "add" {
-		return accountLegacy(home, args, out, errOut)
+		return errors.New("usage: noria account add codex|claude [--alias NAME] [--json]")
 	}
 	c, e := config.Load(home)
 	if e != nil {
@@ -112,7 +114,10 @@ func account(home string, args []string, out, errOut io.Writer) error {
 	if e != nil {
 		return e
 	}
-	if args[0] == "login" || args[0] == "relogin" {
+	if args[0] == "relogin" {
+		if len(args) != 2 {
+			return errors.New("usage: noria account relogin ACCOUNT [--json]")
+		}
 		if !asJSON {
 			fmt.Fprintln(out, "Opening sign-in for", a.DisplayName())
 		}
@@ -157,20 +162,48 @@ func account(home string, args []string, out, errOut io.Writer) error {
 		return nil
 	}
 	if args[0] == "enable" || args[0] == "disable" || args[0] == "remove" {
-		args[1] = a.ID
-		var output io.Writer = out
-		if asJSON {
-			output = io.Discard
+		if len(args) != 2 {
+			return fmt.Errorf("usage: noria account %s ACCOUNT [--json]", args[0])
 		}
-		if e = accountLegacy(home, args, output, errOut); e != nil {
+		op := args[0]
+		if e = config.Mutate(home, func(c *config.Config) error {
+			for i := range c.Accounts {
+				if c.Accounts[i].ID != a.ID {
+					continue
+				}
+				switch op {
+				case "remove":
+					c.Accounts = append(c.Accounts[:i], c.Accounts[i+1:]...)
+				case "enable":
+					if !c.Accounts[i].Authenticated {
+						return errors.New("sign in to the account before enabling it")
+					}
+					c.Accounts[i].Enabled = true
+				case "disable":
+					c.Accounts[i].Enabled = false
+				}
+				return nil
+			}
+			return errors.New("account removed before modification")
+		}); e != nil {
 			return e
 		}
+		reloadAccounts(home)
 		if asJSON {
 			return printJSON(out, map[string]any{"ok": true})
 		}
+		fmt.Fprintln(out, "Account", a.DisplayName(), op)
 		return nil
 	}
 	return errors.New("unknown account command")
+}
+func findAccount(c config.Config, id string) (model.Account, error) {
+	for _, a := range c.Accounts {
+		if a.ID == id {
+			return a, nil
+		}
+	}
+	return model.Account{}, fmt.Errorf("account %s does not exist", id)
 }
 func resolveAccount(c config.Config, query string) (model.Account, error) {
 	for _, a := range c.Accounts {

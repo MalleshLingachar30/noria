@@ -7,6 +7,8 @@ $Arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture 
 $Asset = "noria_windows_${Arch}.exe"
 $Root = if ($env:NORIA_INSTALL_DIR) { $env:NORIA_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Noria\bin' }
 if (-not [System.IO.Path]::IsPathRooted($Root)) { throw 'NORIA_INSTALL_DIR must be absolute' }
+$Binary = Join-Path $Root 'noria.exe'
+if (Test-Path $Binary) { throw 'Noria is already installed. Run noria upgrade to update it safely.' }
 $Temp = Join-Path ([System.IO.Path]::GetTempPath()) ([System.Guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Path $Temp | Out-Null
 try {
@@ -19,11 +21,7 @@ try {
     $Actual = (Get-FileHash (Join-Path $Temp $Asset) -Algorithm SHA256).Hash
     if ($Actual -ine $Expected) { throw 'Checksum mismatch; nothing was installed' }
     New-Item -ItemType Directory -Path $Root -Force | Out-Null
-    $Binary = Join-Path $Root 'noria.exe'
-    if (Test-Path $Binary) {
-        $Status = & $Binary status --json 2>$null | ConvertFrom-Json
-        if ($Status.running) { throw 'Run noria update or stop Noria before reinstalling' }
-    }
+    if (Test-Path $Binary) { throw 'Noria is already installed. Run noria upgrade to update it safely.' }
     Move-Item (Join-Path $Temp $Asset) $Binary -Force
     $UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
     if (($UserPath -split ';') -notcontains $Root) { [Environment]::SetEnvironmentVariable('Path', "$Root;$UserPath", 'User') }

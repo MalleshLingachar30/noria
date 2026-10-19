@@ -37,7 +37,7 @@ func renderStatus(out io.Writer, data []byte, now time.Time) error {
 		return fmt.Errorf("invalid status response: %w", err)
 	}
 	if len(view.Accounts) == 0 {
-		fmt.Fprintln(out, "No accounts registered. Run: noria account add codex-a --provider codex")
+		fmt.Fprintln(out, "No accounts registered. Run: noria account add codex")
 		return nil
 	}
 	table := tabwriter.NewWriter(out, 0, 4, 2, ' ', 0)

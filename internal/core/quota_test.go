@@ -27,7 +27,7 @@ func TestAllWindowsGateAndForecastRequiresEveryBlocker(t *testing.T) {
 	}
 }
 
-func TestModelScopedWindowsAndConfiguredModels(t *testing.T) {
+func TestModelScopedWindows(t *testing.T) {
 	s, now := testScheduler(t, "a")
 	scoped := window("seven_day_sonnet", 100, now.Add(time.Hour), 7*24*time.Hour)
 	scoped.Model = "sonnet"
@@ -47,12 +47,6 @@ func TestModelScopedWindowsAndConfiguredModels(t *testing.T) {
 		t.Fatal("scoped exact bucket leaked to unrelated model:", err)
 	}
 	_ = s.Complete(l)
-	a := pool("a")
-	a[0].Models = []string{"allowed-model"}
-	if err := s.SetAccounts(a); err != nil {
-		t.Fatal(err)
-	}
-	unavailable(t, s, "other-model")
 	if _, err = s.Acquire("claude", "", "allowed-model", nil); err == nil {
 		t.Fatal("cross-provider account selected")
 	}

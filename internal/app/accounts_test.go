@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -16,12 +17,12 @@ func TestEmailDefaultAndAliasNeverChangeRoutingID(t *testing.T) {
 	if e := Run([]string{"init"}, &output, &output); e != nil {
 		t.Fatal(e)
 	}
-	if e := Run([]string{"account", "add", "a", "--provider", "codex"}, &output, &output); e != nil {
+	profile := filepath.Join(home, "accounts", "account-stable")
+	if e := config.PrivateDir(profile); e != nil {
 		t.Fatal(e)
 	}
 	if e := config.Change(home, func(c *config.Config) error {
-		c.Accounts[0].Email = "person@example.com"
-		c.Accounts[0].Authenticated = true
+		c.Accounts = []model.Account{{ID: "account-stable", Email: "person@example.com", Provider: "codex", Profile: profile, Enabled: true, Authenticated: true}}
 		return nil
 	}); e != nil {
 		t.Fatal(e)
@@ -37,7 +38,7 @@ func TestEmailDefaultAndAliasNeverChangeRoutingID(t *testing.T) {
 		t.Fatal(e)
 	}
 	c, _ := config.Load(home)
-	if c.Accounts[0].ID != "a" || c.Accounts[0].Email != "person@example.com" || c.Accounts[0].Alias != "Work" {
+	if c.Accounts[0].ID != "account-stable" || c.Accounts[0].Email != "person@example.com" || c.Accounts[0].Alias != "Work" {
 		t.Fatal("rename changed identity")
 	}
 	if e := Run([]string{"account", "rename", "Work"}, &output, &output); e != nil {
@@ -62,5 +63,19 @@ func TestPublicServeRemoved(t *testing.T) {
 	var output bytes.Buffer
 	if e := Run([]string{"serve"}, &output, &output); e == nil {
 		t.Fatal("blocking serve remains a public command")
+	}
+}
+func TestLegacyNamedAccountsAndUpdateAliasAreGone(t *testing.T) {
+	h := t.TempDir()
+	t.Setenv("NORIA_HOME", h)
+	for _, cmd := range [][]string{
+		{"account", "add", "named", "--provider", "codex"},
+		{"account", "login", "named"},
+		{"update", "--check"},
+		{"autostart", "on"},
+	} {
+		if e := Run(cmd, &bytes.Buffer{}, &bytes.Buffer{}); e == nil {
+			t.Fatalf("unexpected deprecated command accepted: %v", cmd)
+		}
 	}
 }

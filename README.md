@@ -6,19 +6,25 @@ Noria is a lightweight local account router for Codex and Claude Code. Healthy s
 
 [Get started](https://noria.ashray.xyz/docs/quickstart/) · [Documentation](https://noria.ashray.xyz/docs/) · [Releases](https://github.com/amxv/noria/releases)
 
-## macOS: CLI and native menu bar
+## Install without Node or npm
+
+**macOS and Linux:**
 
 ```sh
 curl -fsSL https://noria.ashray.xyz/install.sh | sh
 ```
 
-Click **N**, add your accounts, and approve **Configure Clients…** once. Account titles default to their email addresses. Aliases, enable/disable, relogin, usage refresh, Start/Stop, login preferences, health checks, and updates are available from the menu.
+**Windows (PowerShell):**
+
+```powershell
+irm https://noria.ashray.xyz/install.ps1 | iex
+```
+
+macOS installation includes the native **N** menu bar app. It manages email-first accounts, optional aliases, sign-ins, usage, service controls, health and upgrades without keeping a terminal open. Every installer verifies the exact release checksum. The standalone runtime has no Node or npm dependency.
 
 ## CLI setup
 
 ```sh
-npm install -g @amxv/noria
-noria init
 noria account add codex
 noria account add claude
 noria start
@@ -32,7 +38,7 @@ Each Add opens native browser sign-in. Repeat it for additional accounts. Reopen
 noria status
 noria stop      # restore managed direct settings and existing native login
 noria start
-noria update
+noria upgrade
 ```
 
 Closing a terminal or quitting the menu does not stop the background service. Set login preferences for automatic startup. Stop does not copy a pool account into the normal client; clients that cache settings may need reopening.
@@ -41,7 +47,7 @@ Closing a terminal or quitting the menu does not stop the background service. Se
 
 Noria never buys credits, redeems quota resets, or changes providers/models. No quota exists when all accounts are exhausted. A forced switch starts a cold account cache. Already-delivered model output is not spliced or replayed. Tests use isolated profiles and controlled upstreams, not live subscriptions.
 
-The macOS app uses Zodex-style, checksum-verified CLI installation and ad-hoc signing, not Developer ID notarization. No security settings or quarantine flags are weakened. Browser downloads can be treated differently. See [installation details](https://noria.ashray.xyz/docs/release-and-npm/) and [client-specific setup](https://noria.ashray.xyz/docs/native-clients/), including Claude Desktop's separate form.
+The macOS app uses Zodex-style, checksum-verified CLI installation and ad-hoc signing, not Developer ID notarization. No security settings or quarantine flags are weakened. Browser downloads can be treated differently. See [installation details](https://noria.ashray.xyz/docs/installation-and-upgrades/) and [client-specific setup](https://noria.ashray.xyz/docs/native-clients/), including Claude Desktop's separate form.
 
 ## Development
 
