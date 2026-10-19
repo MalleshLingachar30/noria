@@ -1,7 +1,7 @@
 ---
 title: "How routing helps"
 description: "Sticky sessions and reset-aware placement without manual account switching."
-order: 4
+order: 5
 category: "Routing"
 summary: "Sticky sessions and reset-aware placement without manual account switching."
 ---

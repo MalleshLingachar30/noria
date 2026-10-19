@@ -20,6 +20,7 @@ import (
 	"github.com/amxv/noria/internal/config"
 	"github.com/amxv/noria/internal/core"
 	"github.com/amxv/noria/internal/integration"
+	"github.com/amxv/noria/internal/model"
 	"github.com/amxv/noria/internal/provider"
 	"github.com/amxv/noria/internal/proxy"
 	"github.com/amxv/noria/internal/service"
@@ -65,42 +66,66 @@ func (r *refresher) refresh(ctx context.Context, id string) ([]refreshResult, er
 	if e = r.s.SetAccounts(c.Accounts); e != nil {
 		return nil, e
 	}
-	results := []refreshResult{}
+
+	accounts := []model.Account{}
 	for _, a := range c.Accounts {
-		if (!a.Enabled && !a.Authenticated && a.Email == "") || id != "" && a.ID != id {
+		if id != "" && a.ID != id {
 			continue
 		}
-		if ctx.Err() != nil {
-			return results, ctx.Err()
+		if !a.Enabled && !a.Authenticated && id == "" {
+			continue
 		}
-		deadline, cancel := context.WithTimeout(ctx, 25*time.Second)
-		if a.Email == "" {
-			if identity, identityErr := r.p.Identity(deadline, a); identityErr == nil && identity.Email != "" {
-				_ = config.Mutate(r.home, func(current *config.Config) error {
-					for i := range current.Accounts {
-						if current.Accounts[i].ID == a.ID {
-							current.Accounts[i].Email = identity.Email
-							current.Accounts[i].Authenticated = true
+		accounts = append(accounts, a)
+	}
+	results := make([]refreshResult, len(accounts))
+	slots := make(chan struct{}, 4)
+	var group sync.WaitGroup
+	for i, a := range accounts {
+		if ctx.Err() != nil {
+			group.Wait()
+			return nil, ctx.Err()
+		}
+		group.Add(1)
+		go func(i int, a model.Account) {
+			defer group.Done()
+			select {
+			case slots <- struct{}{}:
+			case <-ctx.Done():
+				results[i] = refreshResult{Account: a.ID, Error: "refresh cancelled"}
+				return
+			}
+			defer func() { <-slots }()
+			deadline, cancel := context.WithTimeout(ctx, 25*time.Second)
+			defer cancel()
+			if a.Email == "" {
+				if identity, e := r.p.Identity(deadline, a); e == nil && identity.Authenticated && identity.Email != "" {
+					_ = config.Change(r.home, func(current *config.Config) error {
+						for index := range current.Accounts {
+							if current.Accounts[index].ID == a.ID {
+								current.Accounts[index].Email = identity.Email
+								current.Accounts[index].Authenticated = true
+							}
 						}
-					}
-					return nil
-				})
-				if current, e := config.Load(r.home); e == nil {
-					_ = r.s.SetAccounts(current.Accounts)
+						return nil
+					})
 				}
 			}
-		}
-		snap, err := r.p.Refresh(deadline, a)
-		cancel()
-		if err == nil {
-			err = r.s.Update(snap)
-		}
-		result := refreshResult{Account: a.ID, OK: err == nil}
-		if err != nil {
-			result.Error = err.Error()
-		}
-		results = append(results, result)
+			snap, e := r.p.Refresh(deadline, a)
+			if e == nil {
+				e = r.s.Update(snap)
+			}
+			result := refreshResult{Account: a.ID, OK: e == nil}
+			if e != nil {
+				result.Error = e.Error()
+			}
+			results[i] = result
+		}(i, a)
 	}
+	group.Wait()
+	if current, e := config.Load(r.home); e == nil {
+		_ = r.s.SetAccounts(current.Accounts)
+	}
+
 	return results, nil
 }
 
@@ -252,6 +277,9 @@ func serveWithContext(parent context.Context, home string, args []string, out, e
 		if err := integration.SetActive(home, exe, actual, true); err != nil {
 			fmt.Fprintln(errOut, "Client integration needs attention:", err)
 		}
+	}
+	if service.ReadIntent(home).Wanted {
+		startAutomaticUpdates(ctx, home, &workers)
 	}
 	fmt.Fprintln(out, "Noria listening on http://"+actual)
 	select {

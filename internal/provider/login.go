@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+var openLoginURL = host.OpenURL
+
 // Login delegates credential issuance/storage to the provider's native client.
 // GUI callers receive no tokens, auth file contents or raw process output.
 func (m *Manager) Login(ctx context.Context, a model.Account) error {
@@ -93,12 +95,12 @@ func (m *Manager) codexLogin(ctx context.Context, p string) error {
 				return errors.New("invalid Codex sign-in URL")
 			}
 			u, e := url.Parse(r.URL)
-			if e != nil || u.Scheme != "https" || (u.Hostname() != "auth.openai.com" && u.Hostname() != "chatgpt.com") {
+			if e != nil || u.Scheme != "https" || u.User != nil || u.Port() != "" || r.ID == "" || (u.Hostname() != "auth.openai.com" && u.Hostname() != "chatgpt.com") {
 				return errors.New("unexpected provider login URL")
 			}
 			loginID = r.ID
-			if e = host.OpenURL(r.URL); e != nil {
-				return e
+			if e = openLoginURL(r.URL); e != nil {
+				return errors.New("could not open the provider sign-in page in your default browser")
 			}
 		}
 		if m.Method == "account/login/completed" {
@@ -107,7 +109,7 @@ func (m *Manager) codexLogin(ctx context.Context, p string) error {
 				Success bool   `json:"success"`
 			}
 			_ = json.Unmarshal(m.Params, &r)
-			if r.ID != loginID {
+			if loginID == "" || r.ID != loginID {
 				continue
 			}
 			if !r.Success {

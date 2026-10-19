@@ -9,6 +9,7 @@ import (
 	"github.com/amxv/noria/internal/integration"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -76,6 +77,11 @@ func healthCommand(home string, args []string, out io.Writer) error {
 		seen[a.Provider] = true
 		_, e := exec.LookPath(a.Provider)
 		checks = append(checks, map[string]any{"name": a.Provider + " executable", "ok": e == nil})
+	}
+	for _, key := range []string{"ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY"} {
+		if os.Getenv(key) != "" {
+			checks = append(checks, map[string]any{"name": "Environment override: " + key, "ok": false, "detail": "May bypass settings.json or override the gateway helper. Clear it for persistent routing."})
+		}
 	}
 	ok := true
 	for _, v := range checks {

@@ -27,6 +27,12 @@ func integrateCommand(home string, args []string, out, errOut io.Writer) error {
 		fmt.Fprintln(out, "Usage: noria integrate codex|claude [--client-home path] [--yes] [--remove] [--json]\nPreview changes by default. --yes authorizes a reversible settings edit. Restart existing clients after switching routing.")
 		return nil
 	}
+	if args[0] == "claude-desktop" {
+		if e := config.Init(home); e != nil {
+			return e
+		}
+		return desktopConfiguration(home, out)
+	}
 	f := flags("integrate", errOut)
 	root := f.String("client-home", "", "client configuration directory (supports CODEX_HOME / CLAUDE_CONFIG_DIR)")
 	yes := f.Bool("yes", false, "approve settings change")

@@ -4,7 +4,7 @@ Noria is a local native Codex/Claude account gateway, distributed as `@amxv/nori
 
 ## Prerequisites and checks
 
-Use the Go version in `go.mod`, Node.js for the npm wrapper and script checks, and Bun for the isolated docs workspace. Native clients are required for interactive use; automated tests substitute fake processes and upstreams. Claude quota use additionally requires `noria bridge setup` and the pinned SDK 0.3.287.
+Use the Go version in `go.mod`, Node.js for the npm wrapper and script checks, and Bun for the isolated docs workspace. Native clients are required for interactive use; automated tests substitute fake processes and upstreams. Claude quota reads invoke the installed native binary directly; no Node.js or Agent SDK bridge is required.
 
 ```bash
 make check

@@ -42,10 +42,13 @@ type Server struct {
 	sockets        map[*websocket.Conn]struct{}
 	closed         bool
 	draining       bool
+	drainDeadline  time.Time
+	activeCalls    int
 	refreshCtx     context.Context
 	refreshCancel  context.CancelFunc
 	refreshing     map[string]bool
 	refreshWorkers sync.WaitGroup
+	socketWorkers  sync.WaitGroup
 }
 
 func New(scheduler *core.Scheduler, backend Backend, secret string) *Server {
@@ -73,7 +76,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	s.mu.Unlock()
 	s.client.CloseIdleConnections()
 	done := make(chan struct{})
-	go func() { s.refreshWorkers.Wait(); close(done) }()
+	go func() { s.refreshWorkers.Wait(); s.socketWorkers.Wait(); close(done) }()
 	select {
 	case <-done:
 		return nil
@@ -114,22 +117,18 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == http.MethodPost && (r.URL.Path == "/_noria/drain" || r.URL.Path == "/_noria/undrain" || r.URL.Path == "/_noria/resume") {
 		s.mu.Lock()
-		defer s.mu.Unlock()
-		if r.URL.Path == "/_noria/undrain" || r.URL.Path == "/_noria/resume" {
+		busy := false
+		if r.URL.Path != "/_noria/drain" {
 			s.draining = false
-			w.WriteHeader(200)
-			return
+		} else if s.activeCalls > 0 {
+			busy = true
+		} else {
+			s.draining = true
+			s.drainDeadline = time.Now().Add(30 * time.Second)
 		}
-		// Existing WebSockets can submit another request without another HTTP
-		// handshake. Do not restart while any such connection is open.
-		if len(s.slots) > 0 || len(s.sockets) > 0 {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = io.WriteString(w, `{"busy":true}`)
-			return
-		}
-		s.draining = true
+		s.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"busy":false}`)
+		_ = json.NewEncoder(w).Encode(map[string]bool{"busy": busy})
 		return
 	}
 	provider, path := route(r.URL.Path)
@@ -138,8 +137,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Lock()
-	if s.draining {
+	if s.draining && time.Now().After(s.drainDeadline) {
+		s.draining = false
+	}
+	if s.draining || s.closed {
 		s.mu.Unlock()
+		w.Header().Set("Retry-After", "2")
 		fail(w, 503, "router is updating; retry shortly")
 		return
 	}
@@ -152,7 +155,6 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusServiceUnavailable, "connection limit reached")
 		return
 	}
-
 	if websocket.IsWebSocketUpgrade(r) {
 		if provider != "codex" || path != "/responses" {
 			fail(w, http.StatusBadRequest, "WebSocket requires the Codex responses route")
@@ -161,6 +163,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.serveWebSocket(w, r, path)
 		return
 	}
+	if !s.beginCall() {
+		w.Header().Set("Retry-After", "2")
+		fail(w, 503, "router is updating; retry shortly")
+		return
+	}
+	defer s.endCall()
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", "POST")
 		fail(w, http.StatusMethodNotAllowed, "POST required")
@@ -390,3 +398,17 @@ func failUnavailable(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusServiceUnavailable)
 	_ = json.NewEncoder(w).Encode(map[string]any{"error": details})
 }
+
+func (s *Server) beginCall() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.draining && time.Now().After(s.drainDeadline) {
+		s.draining = false
+	}
+	if s.draining || s.closed {
+		return false
+	}
+	s.activeCalls++
+	return true
+}
+func (s *Server) endCall() { s.mu.Lock(); s.activeCalls--; s.mu.Unlock() }

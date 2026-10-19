@@ -39,4 +39,4 @@ Initial Noria release.
 
 Installed Codex 0.162.1 and Claude Code 2.1.299 passed local compatibility tests for a first-request quota failure and for resuming an existing conversation after an account limit. The tests verify preserved conversation history and use fake credentials and controlled upstreams. Live subscription accounts have not yet been validated. Partially delivered generations are not transparently spliced. Caches remain account-local and warm naturally after a forced switch.
 
-When every matching account is exhausted, Noria reports unavailability. It does not buy credits, redeem quota resets, enable paid fallback, or switch models/providers. See [troubleshooting](/docs/troubleshooting#compatibility-and-validation) for compatibility context.
+When every matching account is exhausted, Noria reports unavailability. It does not buy credits, redeem quota resets, enable paid fallback, or switch models/providers. See [troubleshooting](/docs/troubleshooting#verified-locally) for compatibility context.

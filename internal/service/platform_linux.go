@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -14,7 +15,23 @@ import (
 )
 
 func configureDetached(cmd *exec.Cmd) { cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true} }
-func systemdAvailable() bool          { return command("systemctl", "--user", "show-environment") == nil }
+func systemdAvailable() bool {
+	actual, e := user.Current()
+	if e != nil {
+		return false
+	}
+	home, e := os.UserHomeDir()
+	if e != nil {
+		return false
+	}
+	actualHome, _ := filepath.EvalSymlinks(actual.HomeDir)
+	selectedHome, _ := filepath.EvalSymlinks(home)
+	// The user manager cannot resolve units in an arbitrary overridden HOME.
+	if actualHome != "" && selectedHome != "" && actualHome != selectedHome {
+		return false
+	}
+	return command("systemctl", "--user", "show-environment") == nil
+}
 func unitPath(home string) string {
 	u, _ := os.UserHomeDir()
 	return filepath.Join(u, ".config", "systemd", "user", Label(home)+".service")
@@ -35,13 +52,19 @@ func startPlatform(home, exe string, c config.Config) error {
 		if e := installUnit(home, exe, c); e != nil {
 			return e
 		}
-		return command("systemctl", "--user", "start", Label(home)+".service")
+		if e := command("systemctl", "--user", "start", Label(home)+".service"); e != nil {
+			return detach(home, exe, c)
+		}
+		return nil
 	}
 	return detach(home, exe, c)
 }
 func stopPlatform(home string) error {
 	if systemdAvailable() {
-		return command("systemctl", "--user", "stop", Label(home)+".service")
+		if command("systemctl", "--user", "show", Label(home)+".service") == nil {
+			return command("systemctl", "--user", "stop", Label(home)+".service")
+		}
+		return nil
 	}
 	return nil
 }

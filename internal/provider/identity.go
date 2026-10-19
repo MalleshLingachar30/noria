@@ -46,7 +46,7 @@ func (m *Manager) Identity(ctx context.Context, a model.Account) (Identity, erro
 		if email == "" {
 			email = displayEmailFromJWT(root.Tokens.Access)
 		}
-		return Identity{Email: email, AccountID: root.Tokens.Account, Authenticated: true}, nil
+		return Identity{Email: validEmail(email), AccountID: root.Tokens.Account, Authenticated: true}, nil
 	}
 	cmd := nativeCommand(ctx, cleanEnv(p, "claude"), m.claudeCommand, "auth", "status", "--json")
 	cmd.Dir = p
@@ -63,7 +63,7 @@ func (m *Manager) Identity(ctx context.Context, a model.Account) (Identity, erro
 	if json.Unmarshal(buffer.data, &identity) != nil {
 		return Identity{}, errors.New("Claude identity response changed")
 	}
-	return Identity{Email: displayEmail(identity.Email), AccountID: identity.UUID, Authenticated: identity.LoggedIn}, nil
+	return Identity{Email: validEmail(identity.Email), AccountID: identity.UUID, Authenticated: identity.LoggedIn}, nil
 }
 
 // Native auth storage is trusted for display only; JWT parsing grants no access.
@@ -81,12 +81,12 @@ func displayEmailFromJWT(token string) string {
 		return ""
 	}
 	if value, ok := claims["email"].(string); ok {
-		return displayEmail(value)
+		return value
 	}
 	for _, key := range []string{"https://api.openai.com/profile", "profile"} {
 		if profile, ok := claims[key].(map[string]any); ok {
 			if email, ok := profile["email"].(string); ok {
-				return displayEmail(email)
+				return email
 			}
 		}
 	}
@@ -97,14 +97,13 @@ func displayEmailFromJWT(token string) string {
 // owns token issuance and browser callbacks.
 func (m *Manager) BrowserLogin(ctx context.Context, a model.Account) error { return m.Login(ctx, a) }
 
-func displayEmail(s string) string {
-	s = strings.TrimSpace(s)
-	if len(s) > 254 || strings.ContainsAny(s, "\r\n\t\x00") {
+func validEmail(value string) string {
+	if len(value) > 254 || strings.ContainsAny(value, "\r\n\x00\t") {
 		return ""
 	}
-	m, e := mail.ParseAddress(s)
-	if e != nil || m.Address != s {
+	address, e := mail.ParseAddress(value)
+	if e != nil || address.Address != value {
 		return ""
 	}
-	return s
+	return value
 }

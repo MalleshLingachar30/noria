@@ -217,6 +217,21 @@ func completeLogin(home string, a model.Account) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	manager := provider.New(home)
+	// Native credential replacement is unavailable to routing until identity is
+	// confirmed; a failed or duplicate relogin cannot silently swap pool identity.
+	if e := config.Mutate(home, func(c *config.Config) error {
+		for i := range c.Accounts {
+			if c.Accounts[i].ID == a.ID {
+				c.Accounts[i].Enabled = false
+				c.Accounts[i].Authenticated = false
+				return nil
+			}
+		}
+		return errors.New("account removed before login")
+	}); e != nil {
+		return e
+	}
+	reloadAccounts(home)
 	if e := manager.BrowserLogin(ctx, a); e != nil {
 		return e
 	}
@@ -230,6 +245,10 @@ func completeLogin(home string, a model.Account) error {
 	if identity.Email == "" {
 		return errors.New("signed in, but this client version did not return an account email; update the native client and retry")
 	}
+	if a.Email != "" && !strings.EqualFold(a.Email, identity.Email) {
+		return errors.New("a different account was selected; this entry remains disabled. Add that account separately, or sign in again with the original email")
+	}
+
 	e = config.Mutate(home, func(c *config.Config) error {
 		for _, v := range c.Accounts {
 			if v.ID != a.ID && v.Provider == a.Provider && v.Authenticated && strings.EqualFold(v.Email, identity.Email) {

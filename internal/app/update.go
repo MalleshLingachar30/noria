@@ -102,6 +102,9 @@ func updateCommand(home string, args []string, out, errOut io.Writer) error {
 		return e
 	}
 	source := filepath.Join(temp, "noria")
+	if runtime.GOOS == "windows" {
+		source += ".exe"
+	}
 	appSource := ""
 	appTarget := filepath.Join(filepath.Dir(exe), "Noria.app")
 	if runtime.GOOS == "darwin" {

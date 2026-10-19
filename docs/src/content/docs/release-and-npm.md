@@ -30,9 +30,9 @@ Releases contain six OS/architecture binaries, two macOS app archives, licenses,
 
 ## Automatic updates
 
-The menu periodically invokes the CLI updater when Automatic Updates is enabled. The Go CLI owns the preference, download, verification, deferral, replacement, and service restart. Manual `noria update` remains available when the menu is closed.
+The background service and menu periodically invoke the CLI updater when Automatic Updates is enabled. The Go CLI owns the preference, download, verification, deferral, replacement, and service restart. Manual `noria update` remains available when the menu is closed.
 
-Open requests and streaming connections defer replacement. Failed verification leaves the installed release unchanged. Replacement retains rollback information so a failed new service can return to the prior release.
+Open requests defer replacement; idle streaming connections reconnect after a safe service update. Failed verification leaves the installed release unchanged. Replacement retains rollback information so a failed new service can return to the prior release.
 
 ## Maintainers
 

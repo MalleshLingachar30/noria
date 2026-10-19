@@ -5,8 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -26,18 +28,7 @@ type Manager struct {
 }
 
 func New(home string) *Manager {
-	resolve := func(name string) string {
-		if c, e := config.Load(home); e == nil && c.ToolPath != "" {
-			for _, dir := range filepath.SplitList(c.ToolPath) {
-				p := filepath.Join(dir, name)
-				if q, e := exec.LookPath(p); e == nil {
-					return q
-				}
-			}
-		}
-		return name
-	}
-	return &Manager{home: home, gates: make(map[string]chan struct{}), snapshots: make(map[string]model.Snapshot), completed: make(map[string]time.Time), codexCommand: resolve("codex"), claudeCommand: resolve("claude")}
+	return &Manager{home: home, gates: make(map[string]chan struct{}), snapshots: make(map[string]model.Snapshot), completed: make(map[string]time.Time), codexCommand: resolveNative(home, "codex"), claudeCommand: resolveNative(home, "claude")}
 }
 
 func (m *Manager) profile(a model.Account) (string, error) {
@@ -155,4 +146,28 @@ func (m *Manager) Doctor() []string {
 		}
 	}
 	return issues
+}
+
+func resolveNative(home, name string) string {
+	if p, e := exec.LookPath(name); e == nil {
+		return p
+	}
+	c, e := config.Load(home)
+	if e != nil {
+		return name
+	}
+	for _, dir := range filepath.SplitList(c.ToolPath) {
+		if !filepath.IsAbs(dir) {
+			continue
+		}
+		suffix := ""
+		if runtime.GOOS == "windows" {
+			suffix = ".exe"
+		}
+		p := filepath.Join(dir, name+suffix)
+		if st, e := os.Stat(p); e == nil && st.Mode().IsRegular() {
+			return p
+		}
+	}
+	return name
 }

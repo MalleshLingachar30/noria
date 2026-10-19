@@ -13,8 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var loginProcess: Process?
     private var updateInFlight = false
     private var updateTimer: Timer?
-    private var actions: [Int: () -> Void] = [:]
-    private var nextAction = 1
+    private final class ActionBox: NSObject { let action: () -> Void; init(_ action: @escaping () -> Void) { self.action = action } }
     private var refreshMessage: String?
     init(cli: CLI) { self.cli = cli; super.init() }
 
@@ -39,16 +38,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item.target = self; item.isEnabled = enabled
         if let check { item.state = check ? .on : .off }
         if let symbol { item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title); item.image?.isTemplate = true }
-        if let action { let key = nextAction; nextAction += 1; actions[key] = action; item.tag = key }
+        if let action { item.representedObject = ActionBox(action) }
         return item
     }
-    @objc private func performAction(_ sender: NSMenuItem) { actions[sender.tag]?() }
+    @objc private func performAction(_ sender: NSMenuItem) { (sender.representedObject as? ActionBox)?.action() }
     private func label(_ text: String) -> NSMenuItem { item(text, enabled: false) }
     private func render() {
-        menu.removeAllItems(); actions.removeAll()
+        menu.removeAllItems()
         let running = dashboard?.running ?? false
         statusItem.button?.appearsDisabled = dashboard != nil && !running
-        menu.addItem(label(running ? "Noria is Running" : "Noria is Stopped · Direct Routing"))
+        menu.addItem(label(running ? "Noria is Running" : "Noria is Stopped"))
         menu.addItem(item(running ? "Stop Noria" : "Start Noria", enabled: !mutationInFlight, symbol: running ? "stop.fill" : "play.fill") { [weak self] in self?.changeService(running ? "stop" : "start") })
         if mutationInFlight { menu.addItem(label("Applying change…")) }
         menu.addItem(.separator())
@@ -68,11 +67,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item(refreshing ? "Refreshing Usage…" : "Refresh Usage", enabled: !refreshing, symbol: "arrow.clockwise") { [weak self] in self?.refreshUsage() })
         if let refreshMessage { menu.addItem(label(refreshMessage)) }
         menu.addItem(.separator())
-        let clientMenu = NSMenu()
+        let clientMenu = NSMenu(); clientMenu.autoenablesItems = false
         for root in dashboard?.client_roots ?? [] {
             let path = (root.root as NSString).abbreviatingWithTildeInPath
             clientMenu.addItem(item("\(root.provider == "codex" ? "Codex" : "Claude Code"): \(path)…") { [weak self] in self?.configure(root: root, remove: false) })
         }
+        clientMenu.addItem(item("Claude Desktop Setup…") { NSWorkspace.shared.open(URL(string: "https://noria.ashray.xyz/docs/native-clients/#claude-desktop-has-separate-configuration")!) })
         clientMenu.addItem(.separator())
         clientMenu.addItem(item("Choose a Custom Client Folder…") { [weak self] in self?.customIntegration() })
         for entry in dashboard?.integrations ?? [] {
@@ -96,7 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func addAccount(_ account: AccountStatus) {
         let header = item(account.title + (account.enabled ? "" : " · Disabled"), symbol: account.enabled ? "person.crop.circle" : "person.crop.circle.badge.minus")
         header.toolTip = account.email
-        let commands = NSMenu()
+        let commands = NSMenu(); commands.autoenablesItems = false
         if let email = account.email, !email.isEmpty { commands.addItem(label(email)) }
         commands.addItem(item(account.enabled ? "Disable Account" : "Enable Account", enabled: !mutationInFlight) { [weak self] in self?.mutate(["account", account.enabled ? "disable" : "enable", account.id, "--json"]) })
         commands.addItem(item("Sign In Again…", enabled: loginProcess == nil) { [weak self] in self?.authenticate(provider: account.provider, account: account) })
@@ -122,7 +122,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard !statusInFlight else { return }; statusInFlight = true
         cli.run(["status", "--json"], timeout: 8) { [weak self] result in
             guard let self else { return }; self.statusInFlight = false
-            if result.status == 0, let state = try? decodeJSON(Dashboard.self, from: result.output), state.schema_version == 1 { self.dashboard = state }
+            if result.status == 0, let state = try? decodeJSON(Dashboard.self, from: result.output), state.schema_version == 1 { self.dashboard = state
+                if let plistData = try? Data(contentsOf: Bundle.main.bundleURL.appendingPathComponent("Contents/Info.plist")),
+                   let plist = (try? PropertyListSerialization.propertyList(from: plistData, options: [], format: nil)) as? [String: Any],
+                   let installed = plist["NoriaVersion"] as? String,
+                   let loaded = Bundle.main.object(forInfoDictionaryKey: "NoriaVersion") as? String, installed != loaded { self.restartMenu(); return }
+            }
             self.render()
         }
     }

@@ -295,3 +295,65 @@ func trustedDownloadURL(address string) bool {
 	}
 	return false
 }
+
+// Swap retains a rollback copy until the caller commits the entire CLI/UI pair.
+// Both copies live beside the installed executable, including cross-volume installs.
+func Swap(source, target string, mode os.FileMode) (rollback func() error, finish func(), err error) {
+	input, e := os.Open(source)
+	if e != nil {
+		return nil, nil, e
+	}
+	defer input.Close()
+	stage, e := os.CreateTemp(filepath.Dir(target), ".noria-swap-*")
+	if e != nil {
+		return nil, nil, e
+	}
+	name := stage.Name()
+	defer os.Remove(name)
+	if e = stage.Chmod(mode); e == nil {
+		_, e = io.Copy(stage, input)
+	}
+	if e == nil {
+		e = stage.Sync()
+	}
+	if ce := stage.Close(); e == nil {
+		e = ce
+	}
+	if e != nil {
+		return nil, nil, e
+	}
+	backup := name + ".previous"
+	had := false
+	if info, e := os.Lstat(target); e == nil {
+		if !info.Mode().IsRegular() {
+			return nil, nil, errors.New("installed binary is not a regular file")
+		}
+		if e = os.Rename(target, backup); e != nil {
+			return nil, nil, e
+		}
+		had = true
+	} else if !os.IsNotExist(e) {
+		return nil, nil, e
+	}
+	if e = os.Rename(name, target); e != nil {
+		if had {
+			_ = os.Rename(backup, target)
+		}
+		return nil, nil, e
+	}
+	rollback = func() error {
+		if e := os.Remove(target); e != nil && !os.IsNotExist(e) {
+			return e
+		}
+		if had {
+			return os.Rename(backup, target)
+		}
+		return nil
+	}
+	finish = func() {
+		if had {
+			_ = os.Remove(backup)
+		}
+	}
+	return rollback, finish, nil
+}

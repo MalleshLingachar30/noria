@@ -5,41 +5,57 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
-func TestUpdateDrainDoesNotAdmitNewWorkAndResumes(t *testing.T) {
-	server, _ := fixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }), "codex", 1)
-	control := func(path string) *httptest.ResponseRecorder {
-		r := httptest.NewRequest("POST", "http://127.0.0.1"+path, strings.NewReader(`{}`))
-		r.Header.Set("Authorization", "Bearer local-secret")
-		w := httptest.NewRecorder()
-		server.ServeHTTP(w, r)
-		return w
+func drain(t *testing.T, s *Server, path string) bool {
+	t.Helper()
+	req := httptest.NewRequest("POST", "http://127.0.0.1"+path, nil)
+	req.Header.Set("Authorization", "Bearer local-secret")
+	rr := httptest.NewRecorder()
+	s.ServeHTTP(rr, req)
+	if rr.Code != 200 {
+		t.Fatalf("drain status %d: %s", rr.Code, rr.Body.String())
 	}
-	server.slots <- struct{}{}
-	w := control("/_noria/drain")
-	var busy struct {
+	var state struct {
 		Busy bool `json:"busy"`
 	}
-	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &busy) != nil || !busy.Busy {
-		t.Fatal("active request wasn't protected")
+	if e := json.Unmarshal(rr.Body.Bytes(), &state); e != nil {
+		t.Fatal(e)
 	}
-	<-server.slots
-	w = control("/_noria/drain")
-	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &busy) != nil || busy.Busy {
-		t.Fatal("idle drain did not engage")
+	return state.Busy
+}
+func TestDrainAdmissionIsAtomicAndBusyDoesNotDisableRouting(t *testing.T) {
+	var requests atomic.Int32
+	s, _ := fixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { requests.Add(1); w.WriteHeader(200) }), "codex", 1)
+	if !s.beginCall() {
+		t.Fatal("initial admission rejected")
 	}
-	w = control("/responses")
-	if w.Code != 503 {
-		t.Fatal("request admitted while draining")
+	if !drain(t, s, "/_noria/drain") {
+		t.Fatal("active work not detected")
 	}
-	w = control("/_noria/resume")
-	if w.Code != 200 {
+	if !s.beginCall() {
+		t.Fatal("busy drain disabled healthy service")
+	}
+	s.endCall()
+	s.endCall()
+	if drain(t, s, "/_noria/drain") {
+		t.Fatal("idle drain is busy")
+	}
+	if s.beginCall() {
+		t.Fatal("drain allowed work")
+	}
+	req := httptest.NewRequest("POST", "http://127.0.0.1/responses", strings.NewReader(`{"model":"fixture"}`))
+	req.Header.Set("Authorization", "Bearer local-secret")
+	rr := httptest.NewRecorder()
+	s.ServeHTTP(rr, req)
+	if rr.Code != 503 || requests.Load() != 0 {
+		t.Fatal("request escaped drained admission")
+	}
+	drain(t, s, "/_noria/resume")
+	if !s.beginCall() {
 		t.Fatal("resume failed")
 	}
-	w = control("/responses")
-	if w.Code == 503 {
-		t.Fatal("drain stayed active")
-	}
+	s.endCall()
 }

@@ -92,6 +92,12 @@ func Init(home string) error {
 	} else if e != nil {
 		return e
 	}
+	if existing, err := Load(home); err == nil && existing.ToolPath == "" {
+		existing.ToolPath = os.Getenv("PATH")
+		if err = Save(home, existing); err != nil {
+			return err
+		}
+	}
 	secretPath := filepath.Join(home, "secret")
 	if _, e = os.Stat(secretPath); errors.Is(e, os.ErrNotExist) {
 		var b [32]byte
@@ -105,7 +111,7 @@ func Init(home string) error {
 }
 
 func Load(home string) (Config, error) {
-	var c Config
+	c := Config{AutoUpdate: true}
 	b, e := os.ReadFile(filepath.Join(home, "config.json"))
 	if e != nil {
 		return c, fmt.Errorf("read configuration (run noria init): %w", e)

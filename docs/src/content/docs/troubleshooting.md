@@ -41,7 +41,7 @@ Check native client versions and `noria doctor`. Claude needs no SDK/Node bridge
 
 Check for a port conflict on `127.0.0.1:43119`, the private `logs/service.log`, and `noria health`. Linux user systemd may be unavailable: manual Start can use the supervisor, while login autostart needs a user service manager.
 
-Updates wait for active requests and streaming connections to finish. Close idle client connections before retrying an update that remains deferred. Checksums and app signatures are verified before replacement; never disable OS security or strip quarantine to force an install.
+Updates wait for active requests to finish. Idle client connections may reconnect during a safe service update. Checksums and app signatures are verified before replacement; never disable OS security or strip quarantine to force an install.
 
 ## Verified locally
 

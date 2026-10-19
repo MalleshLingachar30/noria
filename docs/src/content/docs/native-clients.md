@@ -80,6 +80,8 @@ Claude Desktop's third-party inference settings are not Claude Code's `settings.
 
 Choose Gateway, set the base URL to `http://127.0.0.1:43119/claude`, choose a helper-script credential, and use Noria's absolute executable with arguments `auth-token`, `--home`, and the absolute Noria home. Choose Bearer authentication. If model discovery is unavailable, configure model IDs actually available to the pool; Noria does not substitute models.
 
+Run `noria integrate claude-desktop --json` to print the exact local paths and values, without editing the app.
+
 The corresponding configuration keys are `inferenceProvider`, `inferenceGatewayBaseUrl`, `inferenceCredentialKind`, `inferenceCredentialHelper`, `inferenceCredentialHelperArgs`, and `inferenceGatewayAuthScheme`. Use the [official configuration window guide](https://claude.com/docs/third-party/claude-desktop/in-app-configuration), [gateway guide](https://claude.com/docs/third-party/claude-desktop/gateway), and [helper reference](https://claude.com/docs/third-party/claude-desktop/credential-helper) for app-version and managed-policy requirements. This route has not been live-account validated by Noria.
 
 **Noria does not edit that separate Desktop form, so Stop does not undo it.** Return Desktop to its standard Anthropic sign-in configuration for direct use. Cloud/remote sessions cannot use this computer's loopback endpoint, and managed policy may prevent overrides.

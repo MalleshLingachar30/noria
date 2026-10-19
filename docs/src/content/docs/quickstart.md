@@ -25,6 +25,12 @@ npm install -g @amxv/noria
 noria init
 ```
 
+Windows also has a native installer, without npm:
+
+```powershell
+irm https://noria.ashray.xyz/install.ps1 | iex
+```
+
 Linux also supports the shell installer. Standalone binaries are on [GitHub Releases](https://github.com/amxv/noria/releases). Install the native `codex` and/or `claude` executable for the providers you use. Node is not required by the standalone Noria binary or its Claude quota reader.
 
 ## 2. Add your accounts
