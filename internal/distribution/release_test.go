@@ -28,7 +28,7 @@ func TestOnlyCanonicalAssetOrigins(t *testing.T) {
 	}
 }
 func TestTarRejectsPathsAndLinks(t *testing.T) {
-	for _, header := range []tar.Header{{Name: "../escape", Typeflag: tar.TypeReg, Size: 1}, {Name: "/absolute", Typeflag: tar.TypeReg, Size: 1}, {Name: "Noria.app/link", Typeflag: tar.TypeSymlink, Linkname: "/tmp"}, {Name: "safe", Typeflag: tar.TypeLink, Linkname: "../../escape"}} {
+	for _, header := range []tar.Header{{Name: "../escape", Typeflag: tar.TypeReg, Size: 1}, {Name: "/absolute", Typeflag: tar.TypeReg, Size: 1}, {Name: "\\volume-rooted", Typeflag: tar.TypeReg, Size: 1}, {Name: `C:/windows/system32/evil`, Typeflag: tar.TypeReg, Size: 1}, {Name: `Noria.app\\Contents\\evil`, Typeflag: tar.TypeReg, Size: 1}, {Name: `Noria.app/Contents/file:stream`, Typeflag: tar.TypeReg, Size: 1}, {Name: "Noria.app/link", Typeflag: tar.TypeSymlink, Linkname: "/tmp"}, {Name: "safe", Typeflag: tar.TypeLink, Linkname: "../../escape"}} {
 		t.Run(header.Name, func(t *testing.T) {
 			root := t.TempDir()
 			path := filepath.Join(root, "archive.gz")

@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -192,7 +193,19 @@ func Extract(archive, dest string) error {
 		if e != nil {
 			return e
 		}
-		name := filepath.FromSlash(header.Name)
+		// Tar names use POSIX '/' separators on *every* target OS. filepath.IsAbs
+		// alone is insufficient on Windows: it does not consider a volume-rooted
+		// path such as "/absolute" fully qualified, even though it must never be
+		// accepted from an archive. Reject Windows drive/ADS syntax and backslashes
+		// as well so extraction has the same safety rules on every platform.
+		raw := header.Name
+		clean := path.Clean(raw)
+		if path.IsAbs(raw) || clean == ".." || strings.HasPrefix(clean, "../") ||
+			strings.ContainsAny(raw, "\\:") || strings.HasPrefix(raw, "\\") ||
+			strings.HasPrefix(raw, "//") || strings.IndexByte(raw, 0) >= 0 {
+			return errors.New("unsafe release archive path")
+		}
+		name := filepath.FromSlash(clean)
 		if filepath.IsAbs(name) || name == ".." || strings.HasPrefix(name, ".."+string(filepath.Separator)) {
 			return errors.New("unsafe release archive path")
 		}
