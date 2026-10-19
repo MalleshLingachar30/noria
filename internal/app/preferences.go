@@ -68,6 +68,11 @@ func preferencesCommand(home string, args []string, out io.Writer) error {
 		}); e != nil {
 			return e
 		}
+		if args[0] == "auto-update" {
+			if e = syncUpdateAgent(home, exe); e != nil {
+				return fmt.Errorf("automatic update scheduling failed: %w", e)
+			}
+		}
 	}
 	c, e := config.Load(home)
 	if e != nil {

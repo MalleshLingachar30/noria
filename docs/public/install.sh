@@ -50,6 +50,13 @@ fi
 mv -f "$install_dir/.noria-next" "$install_dir/noria"
 "$install_dir/noria" --version
 "$install_dir/noria" init
+if [ "$os" = darwin ] && [ "${NORIA_NO_LAUNCH:-0}" != 1 ]; then
+  # Register the independent launchd updater immediately. It keeps checking
+  # even if the menu bar is quit or the routing service is stopped.
+  if ! "$install_dir/noria" preferences auto-update on >/dev/null; then
+    echo 'Automatic updates could not be scheduled. Re-enable them in the menu bar after login.' >&2
+  fi
+fi
 case ":${PATH:-}:" in *":$install_dir:"*) ;; *) printf '\nAdd this to your shell profile, then open a new terminal:\n  export PATH="%s:$PATH"\n' "$install_dir";; esac
 if [ "$os" = darwin ] && [ "${NORIA_NO_LAUNCH:-0}" != 1 ]; then "$install_dir/noria" menubar open; fi
 printf '\nInstalled. Add your accounts, configure your clients once, and use Codex or Claude normally.\nhttps://noria.ashray.xyz/docs/quickstart/\n'

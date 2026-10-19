@@ -49,7 +49,16 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	}
 	switch args[0] {
 	case "__menubar-reopen":
-		return delayedMenuHome(home)
+		return delayedMenuHome(home, args[1:])
+	case "__sync-updates":
+		if e := config.Init(home); e != nil {
+			return e
+		}
+		exe, e := service.Executable()
+		if e != nil {
+			return e
+		}
+		return syncUpdateAgent(home, exe)
 	case "__supervise":
 		return service.Supervise(home)
 	case "__daemon":

@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import Foundation
 
 // Native presentation only: every mutation and provider operation is a Go CLI command.
@@ -12,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var mutationInFlight = false
     private var loginProcess: Process?
     private var updateInFlight = false
+    private var relaunchInFlight = false
+    private var updateAgentError: String?
     private var updateTimer: Timer?
     private final class ActionBox: NSObject { let action: () -> Void; init(_ action: @escaping () -> Void) { self.action = action } }
     private var refreshMessage: String?
@@ -26,7 +29,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.autoenablesItems = false
         statusItem.menu = menu
         render()
-        cli.run(["init"], timeout: 10) { [weak self] _ in self?.loadStatus() }
+        cli.run(["init"], timeout: 10) { [weak self] _ in
+            self?.loadStatus()
+            self?.syncUpdateAgent()
+        }
         updateTimer = Timer.scheduledTimer(withTimeInterval: 3600, repeats: true) { [weak self] _ in self?.checkUpdate(automatic: true) }
         DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in self?.checkUpdate(automatic: true) }
     }
@@ -99,6 +105,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         configureMenu.addItem(item("Launch Menu Bar at Login", enabled: !mutationInFlight, check: prefs?.menubar_at_login ?? false) { [weak self] in self?.setPreference("menubar-at-login", enabled: !(prefs?.menubar_at_login ?? false)) })
         configureMenu.addItem(item("Start Noria at Login", enabled: !mutationInFlight, check: prefs?.start_at_login ?? false) { [weak self] in self?.setPreference("start-at-login", enabled: !(prefs?.start_at_login ?? false)) })
         configureMenu.addItem(item("Automatically Update", enabled: !mutationInFlight, check: prefs?.auto_update ?? false) { [weak self] in self?.setPreference("auto-update", enabled: !(prefs?.auto_update ?? false)) })
+        if updateAgentError != nil && prefs?.auto_update == true {
+            configureMenu.addItem(item("Repair Automatic Updates…") { [weak self] in self?.syncUpdateAgent() })
+        }
         configureMenu.addItem(item(updateInFlight ? "Checking for Updates…" : "Check for Updates…", enabled: !updateInFlight) { [weak self] in self?.checkUpdate(automatic: false) })
         configureMenu.addItem(item("Open Documentation", symbol: "book") { NSWorkspace.shared.open(URL(string: "https://noria.ashray.xyz/docs/quickstart/")!) })
         configureMenu.addItem(.separator())
@@ -146,7 +155,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 if let plistData = try? Data(contentsOf: Bundle.main.bundleURL.appendingPathComponent("Contents/Info.plist")),
                    let plist = (try? PropertyListSerialization.propertyList(from: plistData, options: [], format: nil)) as? [String: Any],
                    let installed = plist["NoriaVersion"] as? String,
-                   let loaded = Bundle.main.object(forInfoDictionaryKey: "NoriaVersion") as? String, installed != loaded { self.restartMenu(); return }
+                   let loaded = Bundle.main.object(forInfoDictionaryKey: "NoriaVersion") as? String,
+                   installed == state.version, installed != loaded, !self.updateInFlight { self.restartMenu(); return }
             }
             self.render()
         }
@@ -168,7 +178,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     private func changeService(_ action: String) { mutate([action, "--json"]) }
-    private func setPreference(_ key: String, enabled: Bool) { mutate(["preferences", key, enabled ? "on" : "off", "--json"]) }
+    private func setPreference(_ key: String, enabled: Bool) {
+        if key == "auto-update" { updateAgentError = nil }
+        mutate(["preferences", key, enabled ? "on" : "off", "--json"])
+    }
+    private func syncUpdateAgent() {
+        cli.run(["__sync-updates"], timeout: 20) { [weak self] result in
+            guard let self else { return }
+            self.updateAgentError = result.status == 0 ? nil : result.error
+            self.render()
+        }
+    }
     private func authenticate(provider: String, account: AccountStatus?) {
         guard loginProcess == nil else { return }
         let arguments = account.map { ["account", "relogin", $0.id, "--json"] } ?? ["account", "add", provider, "--json"]
@@ -241,7 +261,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.render()
         }
     }
-    private func restartMenu() { cli.run(["menubar", "reopen"], timeout: 5) { _ in NSApplication.shared.terminate(nil) } }
+    private func restartMenu() {
+        guard !relaunchInFlight else { return }
+        relaunchInFlight = true
+        cli.run(["menubar", "reopen", "--wait-pid", String(getpid())], timeout: 5) { [weak self] result in
+            if result.status == 0 { NSApplication.shared.terminate(nil) }
+            else { self?.relaunchInFlight = false; self?.alert("Could not reopen Noria", result.error) }
+        }
+    }
     private func confirm(_ title: String, _ text: String, button: String) -> Bool {
         let alert = NSAlert(); alert.messageText = title; alert.informativeText = text; alert.addButton(withTitle: button); alert.addButton(withTitle: "Cancel")
         NSApplication.shared.activate(ignoringOtherApps: true); return alert.runModal() == .alertFirstButtonReturn

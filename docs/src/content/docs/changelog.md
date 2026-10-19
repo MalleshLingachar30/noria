@@ -5,6 +5,12 @@ order: 11
 category: Reference
 ---
 
+## 0.3.3 · October 20, 2026
+
+- Made macOS **Automatically Update** register an independent hourly launchd job, so verified updates continue when Noria's menu bar or router is not running. Startup repairs missing registrations, and disabling the setting removes the job.
+- Hardened menu bar restarts after updates: wait for the previous process to exit before reopening, and show an actionable repair option if the updater registration fails.
+- Added isolated launchd registration tests, documentation, and installation-time updater setup.
+
 ## 0.3.2 · October 20, 2026
 
 - Reorganized the macOS menu bar: the main menu shows populated providers, their reported quota windows, Start/Stop, and Refresh. Account setup, client settings, health, startup preferences, upgrades, and documentation are under **Configure**.

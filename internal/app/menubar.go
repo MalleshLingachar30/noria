@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 
 	"time"
 
@@ -79,13 +80,30 @@ func menubar(home string, args []string, out, errOut io.Writer) error {
 		if _, e = os.Stat(target); e != nil {
 			return errors.New("menu bar app is not installed; run noria menubar install")
 		}
+		// Repair missing launchd registrations for existing installations before
+		// opening the UI, but never prevent Noria's menu from opening on failure.
+		if e = syncUpdateAgent(home, exe); e != nil {
+			fmt.Fprintln(errOut, "Automatic updates need attention:", e)
+		}
 		cmd := exec.Command("/usr/bin/open", target, "--args", "--home", home)
 		return cmd.Run()
 	case "reopen":
-		cmd := exec.Command(exe, "__menubar-reopen", "--home", home)
+		// The helper waits for this GUI process to exit and release its lock.
+		// A fixed sleep can lose the relaunch if LaunchServices still sees the
+		// previous instance at the instant it attempts to reopen the app.
+		waitPID := 0
+		if len(args) == 3 && args[1] == "--wait-pid" {
+			waitPID, e = strconv.Atoi(args[2])
+			if e != nil || waitPID <= 0 {
+				return errors.New("invalid menu bar process ID")
+			}
+		} else if len(args) != 1 {
+			return errors.New("usage: noria menubar reopen [--wait-pid PID]")
+		}
+		cmd := exec.Command(exe, "__menubar-reopen", "--wait-pid", strconv.Itoa(waitPID), "--home", home)
 		cmd.Stdin = nil
-		cmd.Stdout = nil
-		cmd.Stderr = nil
+		cmd.Stdout = io.Discard
+		cmd.Stderr = io.Discard
 		if e = cmd.Start(); e != nil {
 			return e
 		}
