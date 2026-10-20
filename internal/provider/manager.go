@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,17 +19,23 @@ import (
 )
 
 type Manager struct {
-	home          string
-	mu            sync.Mutex
-	gates         map[string]chan struct{}
-	snapshots     map[string]model.Snapshot
-	completed     map[string]time.Time
-	codexCommand  string
-	claudeCommand string
+	home           string
+	mu             sync.Mutex
+	gates          map[string]chan struct{}
+	snapshots      map[string]model.Snapshot
+	completed      map[string]time.Time
+	codexCommand   string
+	claudeCommand  string
+	claudeUsageURL string
+	usageClient    *http.Client
 }
 
 func New(home string) *Manager {
-	return &Manager{home: home, gates: make(map[string]chan struct{}), snapshots: make(map[string]model.Snapshot), completed: make(map[string]time.Time), codexCommand: resolveNative(home, "codex"), claudeCommand: resolveNative(home, "claude")}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.Proxy = nil // OAuth credentials must never flow through an environment proxy.
+	transport.ResponseHeaderTimeout = 12 * time.Second
+	return &Manager{home: home, gates: make(map[string]chan struct{}), snapshots: make(map[string]model.Snapshot), completed: make(map[string]time.Time), codexCommand: resolveNative(home, "codex"), claudeCommand: resolveNative(home, "claude"),
+		claudeUsageURL: "https://api.anthropic.com/api/oauth/usage", usageClient: &http.Client{Transport: transport, Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
 }
 
 func (m *Manager) profile(a model.Account) (string, error) {

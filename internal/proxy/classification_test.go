@@ -21,3 +21,37 @@ func TestWeeklyRejectionsAreQuotaRatherThanThroughput(t *testing.T) {
 		t.Fatal("throughput evicted a healthy session")
 	}
 }
+
+// Subscription errors with an otherwise generic 429 must switch a resumed
+// conversation to a different account before exposing any generated output.
+// Request-per-minute throttling must not be mistaken for exhausted quota.
+func TestCodexSubscriptionRejectionsTriggerSafeFailover(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		body  string
+		quota bool
+	}{
+		{"usage limit exceeded code", `{"error":{"code":"usage_limit_exceeded"}}`, true},
+		{"generic rate limit usage", `{"error":{"type":"rate_limit_error","message":"You've hit your usage limit. Try again later."}}`, true},
+		{"generic rate limit reset", `{"error":{"type":"rate_limit_error","message":"Your limit has been reached. Resets tomorrow."}}`, true},
+		{"resumed stream", `{"type":"response.failed","response":{"error":{"type":"rate_limit_error","message":"You've reached your limit; reset at 8:52 AM."}}}`, true},
+		{"request throughput", `{"error":{"type":"rate_limit_error","message":"Too many requests per minute"}}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			status := 429
+			if tc.name == "resumed stream" {
+				status = 0
+			}
+			rejection, retry := classify(status, nil, []byte(tc.body), "gpt-test")
+			if retry != tc.quota {
+				t.Fatalf("retry=%t, rejection=%+v", retry, rejection)
+			}
+			if tc.quota && rejection.Kind != "quota" {
+				t.Fatalf("subscription error not classified as quota: %+v", rejection)
+			}
+			if !tc.quota && rejection.Kind != "throughput" {
+				t.Fatalf("throughput error misclassified: %+v", rejection)
+			}
+		})
+	}
+}

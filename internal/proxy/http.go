@@ -273,6 +273,16 @@ func classify(status int, header http.Header, body []byte, requestedModel string
 	lowerMessage := strings.ToLower(message)
 	shortWindow := containsAny(lowerMessage, "5-hour", "five-hour", "5 hour", "five hour", "five_hour")
 	weeklyWindow := containsAny(lowerMessage, "7-day", "seven-day", "7 day", "seven day", "weekly", "seven_day")
+	// A Codex subscription rejection may use the generic rate_limit_error
+	// type. Distinguish its allowance/reset language from request throughput:
+	// preserving affinity for a spent subscription leaves resumed threads
+	// stranded on that account even when another pool account is ready.
+	subscriptionLimit := shortWindow || weeklyWindow || containsAny(lowerMessage,
+		"usage limit", "usage quota", "hit your limit", "hit your usage limit",
+		"reached your limit", "rate limit resets", "extra usage", "plan limit") ||
+		(strings.Contains(lowerMessage, "limit has been reached") && strings.Contains(lowerMessage, "reset")) ||
+		(strings.Contains(lowerMessage, "your limit was reached") && strings.Contains(lowerMessage, "reset")) ||
+		(strings.Contains(lowerMessage, "reached your") && strings.Contains(lowerMessage, "reset"))
 	// Native subscription limits and auth apply across models unless the
 	// provider explicitly identifies a model-specific allowance.
 	rejection := model.Rejection{}
@@ -288,13 +298,12 @@ func classify(status int, header http.Header, body []byte, requestedModel string
 	case status == 401 || strings.Contains(marker, "authentication_error") || strings.Contains(marker, "invalid_api_key") || strings.Contains(marker, "token_expired"):
 		rejection.Kind = "auth"
 		rejection.Model = ""
-	case strings.Contains(marker, "usage_limit_reached") || strings.Contains(marker, "insufficient_quota") || strings.Contains(marker, "quota_exceeded") || strings.Contains(marker, "model_limit_reached"):
+	case strings.Contains(marker, "usage_limit_reached") || strings.Contains(marker, "usage_limit_exceeded") || strings.Contains(marker, "insufficient_quota") || strings.Contains(marker, "quota_exceeded") || strings.Contains(marker, "model_limit_reached"):
 		rejection.Kind = "quota"
 	case status == 429 || strings.Contains(marker, "rate_limit"):
 		// Claude uses rate_limit_error for both short throughput and subscription
 		// limits. Explicit reset/usage language is needed to evict an affinity.
-		lower := lowerMessage
-		if shortWindow || weeklyWindow || strings.Contains(lower, "usage limit") || strings.Contains(lower, "extra usage") || strings.Contains(lower, "rate limit resets") || strings.Contains(lower, "hit your limit") || (strings.Contains(lower, "reached your") && strings.Contains(lower, "reset")) {
+		if subscriptionLimit {
 			rejection.Kind = "quota"
 		} else {
 			rejection.Kind = "throughput"

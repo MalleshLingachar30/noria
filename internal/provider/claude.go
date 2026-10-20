@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -20,6 +22,25 @@ import (
 // closed on a changed schema, never send a prompt or silently spend tokens.
 func (m *Manager) claudeQuota(ctx context.Context, a model.Account, p string) (model.Snapshot, error) {
 	started := time.Now()
+	snapshot, err := m.claudeControlUsage(ctx, a, p, started)
+	if err != nil || len(snapshot.Windows) != 0 {
+		return snapshot, err
+	}
+	// Claude Code can return rate_limits_available=true with rate_limits=null
+	// even for an authenticated Pro account. The same isolated native OAuth
+	// credential can read the provider's subscription usage endpoint directly.
+	// This is a read-only Go HTTP request, never Node, an SDK or a model turn.
+	credential, expired, err := m.readCredential(ctx, a, p)
+	if err != nil { // Unsigned-in native profiles correctly have no usage.
+		return snapshot, nil
+	}
+	if expired {
+		return snapshot, errors.New("Claude OAuth credential expired; sign in again")
+	}
+	return m.claudeOAuthUsage(ctx, a.ID, credential.Token, started)
+}
+
+func (m *Manager) claudeControlUsage(ctx context.Context, a model.Account, p string, started time.Time) (model.Snapshot, error) {
 	cmd := nativeCommand(ctx, append(cleanEnv(p, "claude"),
 		"CLAUDE_CODE_ENTRYPOINT=sdk-go", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1"),
 		m.claudeCommand,
@@ -104,6 +125,50 @@ func (m *Manager) claudeQuota(ctx context.Context, a model.Account, p string) (m
 	return model.Snapshot{}, errors.New("Claude usage control closed or changed protocol")
 }
 
+// claudeOAuthUsage reads the same account's provider-issued subscription
+// windows when the installed Claude binary reports null limits. No native
+// credentials or server error bodies are logged or exposed to callers.
+func (m *Manager) claudeOAuthUsage(ctx context.Context, id, token string, started time.Time) (model.Snapshot, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, m.claudeUsageURL, nil)
+	if err != nil {
+		return model.Snapshot{}, errors.New("cannot construct Claude subscription usage request")
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Anthropic-Beta", "oauth-2025-04-20")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "claude-code")
+	resp, err := m.usageClient.Do(req)
+	if err != nil {
+		return model.Snapshot{}, errors.New("Claude subscription usage endpoint unavailable")
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+			return model.Snapshot{}, errors.New("Claude subscription usage authorization failed; sign in again")
+		}
+		return model.Snapshot{}, fmt.Errorf("Claude subscription usage returned HTTP %d", resp.StatusCode)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, (64<<10)+1))
+	if err != nil || len(data) > 64<<10 {
+		return model.Snapshot{}, errors.New("invalid Claude subscription usage response size")
+	}
+	// The HTTP shape is the rate_limits object, whereas the native control
+	// envelope additionally carries rate_limits_available.
+	var limits map[string]json.RawMessage
+	if json.Unmarshal(data, &limits) != nil || limits == nil {
+		return model.Snapshot{}, errors.New("invalid Claude subscription usage response")
+	}
+	wrapped, _ := json.Marshal(map[string]any{"rate_limits_available": true, "rate_limits": limits})
+	snapshot, err := parseClaude(id, wrapped, started)
+	if err != nil {
+		return model.Snapshot{}, err
+	}
+	if len(snapshot.Windows) == 0 {
+		return model.Snapshot{}, errors.New("Claude subscription usage returned no quota windows")
+	}
+	return snapshot, nil
+}
+
 func parseClaude(id string, data []byte, now time.Time) (model.Snapshot, error) {
 	s := model.Snapshot{AccountID: id, ObservedAt: now}
 	var root struct {
@@ -134,6 +199,11 @@ func parseClaude(id string, data []byte, now time.Time) (model.Snapshot, error) 
 	for _, key := range keys {
 		// Provider billing/feature metadata is not a subscription window.
 		// Ignore unknown buckets before applying the window schema.
+		// Claude's actual OAuth endpoint also returns seven_day_breakdown,
+		// which is detailed analytics (rows/as_of), not a model quota.
+		if key == "seven_day_breakdown" {
+			continue
+		}
 		if key != "five_hour" && key != "seven_day" && !strings.HasPrefix(key, "five_hour_") && !strings.HasPrefix(key, "seven_day_") {
 			continue
 		}
