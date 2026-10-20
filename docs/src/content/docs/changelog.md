@@ -5,7 +5,7 @@ order: 11
 category: Reference
 ---
 
-## Unreleased
+## 0.3.5 · October 20, 2026
 
 - Corrected Codex subscription-limit classification so old/resumed sessions automatically fail over to a different available account when an exhausted account returns a generic usage-limit response, without confusing ordinary per-minute throttling with subscription exhaustion.
 - Fixed Claude Code's **Usage unavailable** when its installed native CLI reports `rate_limits: null` for an authenticated account. Noria still queries the native binary first, then uses that account's isolated OAuth credential to read the provider's read-only usage endpoint directly from Go (no Node, SDK, or model prompt). Quota percentages and actual reset timestamps are preserved, and unrelated breakdown/billing metadata is ignored.
