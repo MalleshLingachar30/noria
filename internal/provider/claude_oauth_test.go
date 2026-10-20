@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -76,7 +77,11 @@ func TestClaudeOAuthRotatesExpiredCredentialsOnceAcrossManagers(t *testing.T) {
 	if json.Unmarshal(data, &root) != nil || json.Unmarshal(root["claudeAiOauth"], &oauth) != nil || oauth.RefreshToken != "new-refresh" || oauth.ExpiresAt < time.Now().Add(7*time.Hour).UnixMilli() || len(oauth.Scopes) != 1 || string(root["otherSettings"]) != `{"preserved":true}` {
 		t.Fatal("OAuth rotation lost refresh token, expiry or other native credential fields")
 	}
-	if st, err := os.Stat(filepath.Join(profile, ".credentials.json")); err != nil || st.Mode().Perm() != 0600 {
+	if st, err := os.Stat(filepath.Join(profile, ".credentials.json")); err != nil {
+		t.Fatal("rotated credentials are missing:", err)
+	} else if runtime.GOOS != "windows" && st.Mode().Perm() != 0600 {
+		// Windows uses ACLs rather than Unix permission bits; os.FileMode cannot
+		// establish file privacy there. Unix permissions are enforceable here.
 		t.Fatal("rotated credentials are not private")
 	}
 }
