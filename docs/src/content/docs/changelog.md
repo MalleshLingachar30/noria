@@ -5,6 +5,11 @@ order: 11
 category: Reference
 ---
 
+## 0.3.6 · October 20, 2026
+
+- Fixed Claude Code requests failing after an account's OAuth access token expires. Noria now refreshes the isolated account credentials before proxying requests, rotates the refresh token safely under the native profile lock, and preserves existing credential settings without an extra sign-in or model prompt.
+- Made unrecoverable Claude authentication failures report a clear **sign in again** message instead of looking like exhausted usage. Added concurrency, invalid-token, and sensitive-data regression tests.
+
 ## 0.3.5 · October 20, 2026
 
 - Corrected Codex subscription-limit classification so old/resumed sessions automatically fail over to a different available account when an exhausted account returns a generic usage-limit response, without confusing ordinary per-minute throttling with subscription exhaustion.
