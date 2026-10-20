@@ -21,14 +21,25 @@ func (s *Server) serveNative(w http.ResponseWriter, r *http.Request, provider, p
 	defer cancel()
 	session, requestedModel := sessionKey(r, object), modelName(object)
 	excluded := map[string]bool{}
+	needsClaudeLogin := false
 	for attempt := 0; attempt < maxAttempts; attempt++ {
 		lease, err := s.scheduler.Acquire(provider, session, requestedModel, excluded)
 		if err != nil {
+			if provider == "claude" && needsClaudeLogin {
+				fail(w, http.StatusServiceUnavailable, "Claude account authentication expired; sign in again using Noria account relogin")
+				return
+			}
 			failUnavailable(w, err)
 			return
 		}
 		credential, err := s.backend.Credentials(ctx, lease.Account)
 		if err != nil || credential.Token == "" {
+			// Account credential failures must not be mistaken for exhausted
+			// quota. Surface actionable re-login advice only for an explicit
+			// native auth failure; do not expose backend error bodies or tokens.
+			if err != nil && strings.Contains(err.Error(), "sign in again") {
+				needsClaudeLogin = true
+			}
 			// A busy native credential lock or temporary keychain failure is
 			// not an authoritative authentication rejection.
 			_ = s.scheduler.Complete(lease)
