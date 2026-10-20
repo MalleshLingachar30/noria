@@ -54,6 +54,8 @@ noria status
 
 Each account has its own independent five-hour and weekly windows. If the provider doesn't return usage information, Noria labels it unknown rather than assuming there's free allowance. A real upstream quota rejection takes priority over old readings.
 
+For Claude Code, Noria first checks the installed `claude` binary using its passive native control protocol. Some authenticated versions return `rate_limits: null` despite an active subscription; Noria then reads the provider's usage endpoint with the account's existing isolated native OAuth credential. No Node runtime, external SDK, model prompt, or new sign-in is needed. If both sources fail, the quota remains unknown rather than displaying guessed values.
+
 ## Stop didn't switch my client back
 
 An already-open client may have cached its settings. Close and reopen it. `noria stop` restores only client settings that Noria installed; applications manually configured to use its gateway need to be changed manually.

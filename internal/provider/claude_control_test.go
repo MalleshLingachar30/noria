@@ -5,6 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -64,11 +67,93 @@ func claudeFixture() {
 		}
 		var payload any = map[string]any{}
 		if req.Request.Subtype == "get_usage" {
-			payload = map[string]any{"rate_limits_available": true,
-				"rate_limits": map[string]any{"five_hour": map[string]any{"utilization": 12.5, "resets_at": nil}, "seven_day": map[string]any{"utilization": 45.0, "resets_at": nil}},
-				"secret":      "must-not-be-returned"}
+			if mode == "null_limits" {
+				payload = map[string]any{"rate_limits_available": true, "rate_limits": nil, "subscription_type": "pro"}
+			} else {
+				payload = map[string]any{"rate_limits_available": true,
+					"rate_limits": map[string]any{"five_hour": map[string]any{"utilization": 12.5, "resets_at": nil}, "seven_day": map[string]any{"utilization": 45.0, "resets_at": nil}},
+					"secret":      "must-not-be-returned"}
+			}
 		}
 		_ = encoder.Encode(map[string]any{"type": "control_response", "response": map[string]any{"request_id": req.RequestID, "subtype": "success", "response": payload}})
+	}
+}
+
+func TestClaudeNullNativeUsageReadsSameProfileOAuthWithoutNode(t *testing.T) {
+	m, a := fixtureProfile(t, "claude")
+	m.claudeCommand = os.Args[0]
+	t.Setenv("GO_PROVIDER_FIXTURE", "claude")
+	t.Setenv("GO_CLAUDE_FIXTURE_MODE", "null_limits")
+	t.Setenv("ANTHROPIC_BASE_URL", "http://proxy.invalid")
+	// The native CLI and the HTTPS recovery path use only this profile's
+	// credential, never inherited tokens or another account's credentials.
+	credential := `{"claudeAiOauth":{"accessToken":"isolated-claude-fixture","expiresAt":4102444800000}}`
+	if err := os.WriteFile(filepath.Join(a.Profile, ".credentials.json"), []byte(credential), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var calls int
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if r.Method != http.MethodGet || r.URL.Path != "/api/oauth/usage" || r.Header.Get("Authorization") != "Bearer isolated-claude-fixture" || r.Header.Get("Anthropic-Beta") != "oauth-2025-04-20" || r.Header.Get("X-Api-Key") != "" {
+			t.Error("usage request did not use the isolated OAuth credential")
+		}
+		_, _ = io.WriteString(w, `{"five_hour":{"utilization":0,"resets_at":null},"seven_day":{"utilization":67,"resets_at":"2026-10-24T21:59:59.628557+00:00"},"seven_day_breakdown":{"as_of":"2026-10-20T00:00:00Z","rows":[]},"extra_usage":{"is_enabled":false},"iguana_necktie":{"utilization":98}}`)
+	}))
+	defer upstream.Close()
+	m.claudeUsageURL = upstream.URL + "/api/oauth/usage"
+	snapshot, err := m.Refresh(context.Background(), a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 || !snapshot.Available || len(snapshot.Windows) != 2 || snapshot.Windows[0].Name != "five_hour" || *snapshot.Windows[0].Used != 0 || snapshot.Windows[0].ResetsAt != nil || snapshot.Windows[1].Name != "seven_day" || *snapshot.Windows[1].Used != 67 {
+		t.Fatalf("Claude usage was not recovered: %+v (calls=%d)", snapshot, calls)
+	}
+	if want := time.Date(2026, time.October, 24, 21, 59, 59, 628557000, time.UTC); !snapshot.Windows[1].ResetsAt.Equal(want) {
+		t.Fatal("weekly reset timestamp changed")
+	}
+	trace, err := os.ReadFile(filepath.Join(a.Profile, "claude-calls"))
+	if err != nil || strings.TrimSpace(string(trace)) != "initialize\nget_usage" {
+		t.Fatalf("native CLI was not consulted first: %q %v", trace, err)
+	}
+}
+
+func TestClaudeMissingNativeUsageWithoutCredentialsDoesNotGuessLimits(t *testing.T) {
+	m, a := fixtureProfile(t, "claude")
+	m.claudeCommand = os.Args[0]
+	t.Setenv("GO_PROVIDER_FIXTURE", "claude")
+	t.Setenv("GO_CLAUDE_FIXTURE_MODE", "null_limits")
+	snapshot, err := m.Refresh(context.Background(), a)
+	if err != nil || snapshot.Available || len(snapshot.Windows) != 0 {
+		t.Fatalf("unsigned-in profile must remain unknown: %+v %v", snapshot, err)
+	}
+}
+
+func TestClaudeUsageRecoveryDoesNotExposeServerErrorOrAcceptInvalidData(t *testing.T) {
+	m, a := fixtureProfile(t, "claude")
+	m.claudeCommand = os.Args[0]
+	t.Setenv("GO_PROVIDER_FIXTURE", "claude")
+	t.Setenv("GO_CLAUDE_FIXTURE_MODE", "null_limits")
+	if err := os.WriteFile(filepath.Join(a.Profile, ".credentials.json"), []byte(`{"claudeAiOauth":{"accessToken":"private-credential"}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		status int
+		body   string
+	}{
+		{403, `{"error":"secret-remote-body"}`},
+		{200, `{"five_hour":{"utilization":200,"resets_at":null}}`},
+		{200, `{"extra_usage":{"is_enabled":true}}`},
+	} {
+		upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(tc.status)
+			_, _ = io.WriteString(w, tc.body)
+		}))
+		m.claudeUsageURL = upstream.URL
+		_, err := m.Refresh(context.Background(), a)
+		upstream.Close()
+		if err == nil || strings.Contains(err.Error(), "private-credential") || strings.Contains(err.Error(), "secret-remote-body") {
+			t.Fatalf("unsafe usage response handling: %v", err)
+		}
 	}
 }
 
