@@ -6,6 +6,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -65,5 +66,47 @@ func TestAtomicFileReplacementKeepsRollback(t *testing.T) {
 func TestInvalidReleaseVersionRejectedBeforeNetwork(t *testing.T) {
 	if _, e := Tagged(context.Background(), "../other"); e == nil {
 		t.Fatal("unsafe tag accepted")
+	}
+}
+
+func TestPublicLatestRedirectIsStrictlyValidated(t *testing.T) {
+	const page = "https://github.com/amxv/noria/releases/latest"
+	for _, location := range []string{
+		"https://github.com/amxv/noria/releases/tag/v0.3.4",
+		"/amxv/noria/releases/tag/v0.3.4",
+	} {
+		tag, err := latestTagFromLocation(page, location)
+		if err != nil || tag != "v0.3.4" {
+			t.Fatalf("valid redirect %q: %q %v", location, tag, err)
+		}
+	}
+	for _, location := range []string{
+		"", "https://evil.example/amxv/noria/releases/tag/v0.3.4",
+		"https://github.com.evil.example/amxv/noria/releases/tag/v0.3.4",
+		"http://github.com/amxv/noria/releases/tag/v0.3.4",
+		"https://github.com/other/noria/releases/tag/v0.3.4",
+		"https://github.com/amxv/noria/releases/tag/v0.3.4/extra",
+		"https://github.com/amxv/noria/releases/tag/unstable",
+		"https://github.com/amxv/noria/releases/tag/v0.3.4?download=1",
+	} {
+		if _, err := latestTagFromLocation(page, location); err == nil {
+			t.Errorf("accepted untrusted latest redirect: %q", location)
+		}
+	}
+}
+
+func TestPublicReleaseAssetsStayCanonical(t *testing.T) {
+	r := releaseForTag("v0.3.4")
+	if r.Tag != "v0.3.4" || r.Draft || r.Prerelease || len(r.Assets) != 3 {
+		t.Fatalf("unexpected release metadata: %+v", r)
+	}
+	for _, name := range []string{"SHA256SUMS", BinaryName(), ArchiveName()} {
+		url, err := assetURL(r, name)
+		if err != nil || url != "https://github.com/amxv/noria/releases/download/v0.3.4/"+name {
+			t.Fatalf("invalid canonical asset URL %s: %s %v", name, url, err)
+		}
+		if strings.Contains(url, "api.github.com") {
+			t.Fatal("release asset unexpectedly depends on REST API")
+		}
 	}
 }

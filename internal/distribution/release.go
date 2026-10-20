@@ -56,13 +56,85 @@ func Newer(target, current string) bool {
 	return false
 }
 func Latest(ctx context.Context) (Release, error) {
-	return Fetch(ctx, "https://api.github.com/repos/amxv/noria/releases/latest")
+	// GitHub's anonymous REST API has a shared per-IP rate limit. CI runners
+	// and machines behind NAT can receive HTTP 403 even for public releases.
+	// The public /releases/latest redirect is not subject to the REST quota.
+	// We still checksum-verify every asset before executing it.
+	tag, err := latestTagByRedirect(ctx)
+	if err == nil {
+		return releaseForTag(tag), nil
+	}
+	release, apiErr := Fetch(ctx, "https://api.github.com/repos/amxv/noria/releases/latest")
+	if apiErr != nil {
+		return Release{}, fmt.Errorf("could not locate latest release (GitHub redirect: %v; API: %w)", err, apiErr)
+	}
+	return release, nil
 }
 func Tagged(ctx context.Context, version string) (Release, error) {
 	if !validVersion.MatchString(version) {
 		return Release{}, errors.New("invalid release version")
 	}
-	return Fetch(ctx, "https://api.github.com/repos/amxv/noria/releases/tags/v"+strings.TrimPrefix(version, "v"))
+	tag := "v" + strings.TrimPrefix(version, "v")
+	// The checksum and requested archive provide stronger validation than
+	// relying on the rate-limited release-metadata API for known tags.
+	return releaseForTag(tag), nil
+}
+
+// releaseForTag produces only the fixed, known asset URLs on our GitHub
+// repository. It never accepts download links from a redirect response.
+func releaseForTag(tag string) Release {
+	base := "https://github.com/amxv/noria/releases/download/" + tag + "/"
+	names := []string{"SHA256SUMS", BinaryName(), ArchiveName()}
+	assets := make([]Asset, 0, len(names))
+	for _, name := range names {
+		assets = append(assets, Asset{Name: name, URL: base + name})
+	}
+	return Release{Tag: tag, Assets: assets}
+}
+
+func latestTagFromLocation(base, location string) (string, error) {
+	page, err := url.Parse(base)
+	if err != nil {
+		return "", err
+	}
+	ref, err := url.Parse(location)
+	if err != nil {
+		return "", err
+	}
+	u := page.ResolveReference(ref)
+	const prefix = "/amxv/noria/releases/tag/"
+	if u.Scheme != "https" || u.Host != "github.com" || u.User != nil ||
+		u.RawQuery != "" || u.Fragment != "" || !strings.HasPrefix(u.Path, prefix) {
+		return "", errors.New("untrusted latest-release redirect")
+	}
+	tag := strings.TrimPrefix(u.Path, prefix)
+	if !strings.HasPrefix(tag, "v") || !validVersion.MatchString(tag) {
+		return "", errors.New("invalid latest release tag")
+	}
+	return tag, nil
+}
+
+func latestTagByRedirect(ctx context.Context) (string, error) {
+	const page = "https://github.com/amxv/noria/releases/latest"
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, page, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "Noria-updater")
+	client := &http.Client{
+		Timeout:       20 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusFound && resp.StatusCode != http.StatusMovedPermanently &&
+		resp.StatusCode != http.StatusTemporaryRedirect && resp.StatusCode != http.StatusPermanentRedirect {
+		return "", fmt.Errorf("latest-release page returned HTTP %d", resp.StatusCode)
+	}
+	return latestTagFromLocation(page, resp.Header.Get("Location"))
 }
 func Fetch(ctx context.Context, endpoint string) (Release, error) {
 	var r Release

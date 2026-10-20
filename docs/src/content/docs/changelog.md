@@ -5,6 +5,10 @@ order: 11
 category: Reference
 ---
 
+## 0.3.4 · October 20, 2026
+
+- Fixed automatic update checks when GitHub's anonymous release API is rate-limited (HTTP 403). Noria now discovers stable releases through GitHub's public latest-release redirect, with strict URL validation and its existing checksum-verified asset downloads.
+
 ## 0.3.3 · October 20, 2026
 
 - Made macOS **Automatically Update** register an independent hourly launchd job, so verified updates continue when Noria's menu bar or router is not running. Startup repairs missing registrations, and disabling the setting removes the job.
