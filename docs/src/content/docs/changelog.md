@@ -5,6 +5,11 @@ order: 11
 category: Reference
 ---
 
+## Unreleased
+
+- Added an opt-in, Node-free Codex app-server stdio adapter for older conversations. `noria run codex -- app-server` overrides the original saved provider on `thread/start`, `thread/resume`, and `thread/fork`, so a direct-account session can rejoin Noria without rewriting its history. Added a launcher shim for third-party apps that invoke `codex app-server` themselves.
+- Fixed command-local Codex configuration conflicts when the persistent `noria` provider already uses an auth helper: the adapter uses a separate `noria_runner` provider rather than mixing `env_key` and `auth` for one native provider.
+
 ## 0.3.5 · October 20, 2026
 
 - Corrected Codex subscription-limit classification so old/resumed sessions automatically fail over to a different available account when an exhausted account returns a generic usage-limit response, without confusing ordinary per-minute throttling with subscription exhaustion.

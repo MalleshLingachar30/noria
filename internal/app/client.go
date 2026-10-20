@@ -96,6 +96,9 @@ func client(home, op string, args []string, out, errOut io.Writer) error {
 	if len(native) > 0 && native[0] == "--" {
 		native = native[1:]
 	}
+	if kind == "codex" && len(native) > 0 && native[0] == "app-server" {
+		return runCodexAppServer(native, overrides, env, os.Stdin, out, errOut)
+	}
 	cmd := exec.Command(kind, append(overrides, native...)...)
 	cmd.Env = env
 	cmd.Stdin = os.Stdin
@@ -121,5 +124,9 @@ func clientEnv() []string {
 }
 
 func codexOverrides(address string) []string {
-	return []string{"-c", `model_provider="noria"`, "-c", `model_providers.noria={name="Noria",base_url=` + strconv.Quote("http://"+address+"/codex/v1") + `,env_key="NORIA_GATEWAY_TOKEN",wire_api="responses",supports_websockets=true}`}
+	// Keep the command-local provider distinct from the persistently installed
+	// [model_providers.noria]. The latter uses an auth helper; overriding it with
+	// env_key leaves both authentication mechanisms in the merged Codex config,
+	// which native Codex rejects before it can resume any session.
+	return []string{"-c", `model_provider="noria_runner"`, "-c", `model_providers.noria_runner={name="Noria",base_url=` + strconv.Quote("http://"+address+"/codex/v1") + `,env_key="NORIA_GATEWAY_TOKEN",wire_api="responses",supports_websockets=true}`}
 }

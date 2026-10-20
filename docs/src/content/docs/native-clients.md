@@ -15,6 +15,16 @@ noria integrate codex --yes
 
 This configures the Codex `config.toml` read by your client. Codex CLI, the Codex desktop app, and other clients using that same configuration root can then send requests through Noria.
 
+### Old app-server sessions and third-party launchers
+
+Some applications start Codex through `codex app-server` and resume a saved thread with the RPC `thread/resume`. Codex can reuse the thread's **original** `modelProvider` (such as `openai`) instead of the current `model_provider = "noria"` from `config.toml`. Such requests go directly to the original account; Noria cannot see or retry their quota errors. Reinstalling Noria or changing percentages cannot correct a request that bypasses the gateway.
+
+For applications that support a custom app-server command, use **`noria run codex -- app-server`** instead of `codex app-server`. This passes JSON-RPC requests through Noria's transparent stdio adapter. It sets the command-local `noria_runner` provider on thread starts, resumes and forks; other requests, notifications, responses, prompts and session histories remain unchanged. Normal Codex CLI sessions do not require this adapter.
+
+If the application insists on launching a program named `codex`, an **opt-in**, executable launcher is provided as `scripts/noria-codex-app-server-shim.sh`. Copy it into a dedicated directory under the filename `codex`, then configure **that application** to find this directory before your real Codex executable (or select the shim as its Codex executable). Do not replace the native `codex` binary or symlink. Set `NORIA_NATIVE_CODEX_BIN` to the absolute real binary if it does not live at `$HOME/.codex/packages/standalone/current/bin/codex`. Non-app-server invocations are forwarded directly to that native binary. Restart the application to pick up the launcher.
+
+**Important:** Noria cannot override an app's `modelProvider` if the application still executes its own unwrapped app-server. Applications that own their Codex app-server RPC calls can also fix this by passing `"modelProvider": "noria"` when they resume legacy threads. This provider override belongs in the *first* `thread/resume` request, before the thread is loaded into the app-server process. Noria's CLI adapter instead uses its isolated `noria_runner` provider to avoid conflicts with persistent credential-helper configuration.
+
 ## Claude Code
 
 ```sh

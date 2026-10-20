@@ -22,6 +22,8 @@ If you use a custom `CODEX_HOME` or `CLAUDE_CONFIG_DIR`, configure that path exp
 
 Editors and desktop apps sometimes have their own base-URL or account settings. See [Connect your clients](/docs/native-clients).
 
+**Already-open or old Codex app-server threads:** If a resumed thread still reports a ChatGPT usage limit even though Noria has spare accounts, check whether the third-party app is sending requests through the gateway. A saved thread's original `model_provider: "openai"` can override the current Noria configuration on `thread/resume`. `noria status` will not acquire bindings for direct requests. Use the [Codex app-server adapter](/docs/native-clients#old-app-server-sessions-and-third-party-launchers) for clients that support an alternate launcher, or configure the client to pass the Noria provider explicitly on resume. This does not require deleting, migrating or editing session files.
+
 ## Configure Codex failed
 
 Upgrade to **Noria 0.3.1 or later** if you see a panic involving `reflect.Value.SetLen` or TOML arrays such as `[[skills.config]]`.

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -158,6 +159,75 @@ supports_websockets = true
 	if e = integration.Install(pool, "codex", profile, helper, strings.TrimPrefix(local.URL, "http://")); e != nil {
 		t.Fatal(e)
 	}
+	// App-server differs from `codex exec resume`: it restores the provider
+	// from the saved rollout even when the current config says Noria. Verify
+	// the opt-in stdio adapter overrides it before the *first* thread/resume,
+	// without sending a model turn or changing the saved thread history.
+	if e = config.Change(pool, func(c *config.Config) error {
+		c.Listen = strings.TrimPrefix(local.URL, "http://")
+		return nil
+	}); e != nil {
+		t.Fatal(e)
+	}
+	func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		appServer := exec.CommandContext(ctx, helper, "run", "codex", "--", "app-server")
+		appServer.Env = append(append([]string{}, env...), "NORIA_HOME="+pool)
+		appServer.Dir = h
+		stdin, err := appServer.StdinPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		stdout, err := appServer.StdoutPipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = appServer.Start(); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			// The native app-server owns a session writer. Let it close naturally
+			// after stdin EOF before a second Codex process resumes that thread.
+			_ = stdin.Close()
+			if err := appServer.Wait(); err != nil {
+				t.Fatalf("native app-server did not exit cleanly: %v", err)
+			}
+		}()
+		encoder := json.NewEncoder(stdin)
+		scanner := bufio.NewScanner(stdout)
+		scanner.Buffer(make([]byte, 4096), 4<<20)
+		if err = encoder.Encode(map[string]any{"id": 1, "method": "initialize", "params": map[string]any{"clientInfo": map[string]string{"name": "noria-compat", "title": "Noria", "version": "0.1.0"}}}); err != nil {
+			t.Fatal(err)
+		}
+		for scanner.Scan() {
+			var reply struct {
+				ID     int `json:"id"`
+				Result struct {
+					ModelProvider string `json:"modelProvider"`
+				} `json:"result"`
+				Error json.RawMessage `json:"error"`
+			}
+			if json.Unmarshal(scanner.Bytes(), &reply) != nil {
+				t.Fatal("invalid app-server JSON")
+			}
+			if reply.ID == 1 {
+				if err = encoder.Encode(map[string]any{"method": "initialized", "params": map[string]any{}}); err != nil {
+					t.Fatal(err)
+				}
+				if err = encoder.Encode(map[string]any{"id": 2, "method": "thread/resume", "params": map[string]any{"threadId": id, "excludeTurns": true}}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if reply.ID == 2 {
+				if reply.Result.ModelProvider != "noria_runner" {
+					t.Fatalf("legacy app-server thread did not select Noria: provider=%q error=%s", reply.Result.ModelProvider, string(reply.Error)[:min(380, len(reply.Error))])
+				}
+				return
+			}
+		}
+		t.Fatalf("app-server closed before legacy thread/resume: %v", scanner.Err())
+	}()
 	second := run("exec", "resume", "--skip-git-repo-check", "--json", id, "Continue. Reply with fixture-ok.")
 	if !strings.Contains(string(second), "fixture-ok") || direct.Load() != oldDirect || pooled.Load() < 2 {
 		t.Fatalf("prior session bypassed persistent routing: old-direct=%d now=%d pooled=%d\n%s", oldDirect, direct.Load(), pooled.Load(), second)
