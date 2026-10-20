@@ -114,6 +114,50 @@ func TestNativeBodyHeadersAndQuotaFailover(t *testing.T) {
 	}
 }
 
+func TestResumedCodexSessionSwitchesOnGenericSubscriptionLimit(t *testing.T) {
+	// The first turn establishes an A binding, as a pre-existing conversation
+	// would. A subsequent request is rejected with Codex's generic rate-limit
+	// shape. Noria must retry the *same* continuation on B and stay there.
+	var limited atomic.Bool
+	var aCalls, bCalls atomic.Int32
+	_, local := fixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		if !strings.Contains(string(body), `"continuation":"retained-history"`) {
+			t.Error("continuation body changed during failover")
+		}
+		if r.Header.Get("Authorization") == "Bearer token-a" {
+			aCalls.Add(1)
+			if limited.Load() {
+				w.WriteHeader(429)
+				_, _ = io.WriteString(w, `{"error":{"type":"rate_limit_error","message":"You've hit your usage limit; resets at 8:52 AM."}}`)
+				return
+			}
+		} else {
+			bCalls.Add(1)
+		}
+		_, _ = io.WriteString(w, `{"result":"ok"}`)
+	}), "codex", 2)
+	body := `{"model":"gpt-test","continuation":"retained-history"}`
+	first := post(t, local.URL+"/responses", body)
+	if first.StatusCode != 200 {
+		t.Fatalf("first turn: %d %s", first.StatusCode, read(t, first))
+	}
+	read(t, first)
+	limited.Store(true)
+	second := post(t, local.URL+"/responses", body)
+	if second.StatusCode != 200 || !strings.Contains(read(t, second), `"ok"`) {
+		t.Fatal("existing session did not fail over")
+	}
+	third := post(t, local.URL+"/responses", body)
+	if third.StatusCode != 200 {
+		t.Fatalf("continued binding: %d %s", third.StatusCode, read(t, third))
+	}
+	read(t, third)
+	if aCalls.Load() != 2 || bCalls.Load() != 2 {
+		t.Fatalf("expected A initial + rejection, B retry + subsequent turn; A=%d B=%d", aCalls.Load(), bCalls.Load())
+	}
+}
+
 func TestEarlySSEQuotaAndNoPartialSplice(t *testing.T) {
 	for _, partial := range []bool{false, true} {
 		t.Run(map[bool]string{false: "early", true: "partial"}[partial], func(t *testing.T) {
