@@ -27,6 +27,7 @@ type Manager struct {
 	codexCommand   string
 	claudeCommand  string
 	claudeUsageURL string
+	claudeTokenURL string
 	usageClient    *http.Client
 }
 
@@ -35,7 +36,7 @@ func New(home string) *Manager {
 	transport.Proxy = nil // OAuth credentials must never flow through an environment proxy.
 	transport.ResponseHeaderTimeout = 12 * time.Second
 	return &Manager{home: home, gates: make(map[string]chan struct{}), snapshots: make(map[string]model.Snapshot), completed: make(map[string]time.Time), codexCommand: resolveNative(home, "codex"), claudeCommand: resolveNative(home, "claude"),
-		claudeUsageURL: "https://api.anthropic.com/api/oauth/usage", usageClient: &http.Client{Transport: transport, Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+		claudeUsageURL: "https://api.anthropic.com/api/oauth/usage", claudeTokenURL: "https://platform.claude.com/v1/oauth/token", usageClient: &http.Client{Transport: transport, Timeout: 15 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
 }
 
 func (m *Manager) profile(a model.Account) (string, error) {
@@ -91,7 +92,7 @@ func (m *Manager) Credentials(ctx context.Context, a model.Account) (model.Crede
 		if a.Provider == "codex" {
 			_, err = m.codexControl(ctx, a, p, true)
 		} else {
-			_, err = m.refreshNative(ctx, a, p)
+			err = m.refreshClaudeOAuth(ctx, a, p)
 		}
 		if err != nil {
 			return model.Credential{}, fmt.Errorf("native credential refresh failed; run account login: %w", err)

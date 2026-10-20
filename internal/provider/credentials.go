@@ -19,6 +19,17 @@ import (
 )
 
 func (m *Manager) readCredential(ctx context.Context, a model.Account, p string) (model.Credential, bool, error) {
+	data, _, _, err := nativeCredentialData(ctx, a, p)
+	if err != nil {
+		return model.Credential{}, false, err
+	}
+	return parseCredential(a.Provider, data)
+}
+
+// nativeCredentialData returns the provider-owned credential payload and, when
+// stored in macOS Keychain, the exact item identity to update on rotation.
+// Keychain takes precedence over the profile file, matching Claude Code.
+func nativeCredentialData(ctx context.Context, a model.Account, p string) ([]byte, string, string, error) {
 	name := "auth.json"
 	if a.Provider == "claude" {
 		name = ".credentials.json"
@@ -35,20 +46,26 @@ func (m *Manager) readCredential(ctx context.Context, a model.Account, p string)
 			cmd.Stderr = nil
 			data, _ = cmd.Output()
 			cancel()
+			if len(data) != 0 {
+				return data, service, who.Username, nil
+			}
 		}
 	}
 	if len(data) == 0 {
 		path := filepath.Join(p, name)
 		info, e := os.Lstat(path)
 		if e != nil || !info.Mode().IsRegular() {
-			return model.Credential{}, false, errors.New("native credentials unavailable; run account login")
+			return nil, "", "", errors.New("native credentials unavailable; run account login")
 		}
 		if info.Size() > 1<<20 {
-			return model.Credential{}, false, errors.New("native credentials file is too large")
+			return nil, "", "", errors.New("native credentials file is too large")
 		}
-		data, _ = os.ReadFile(path)
+		data, e = os.ReadFile(path)
+		if e != nil {
+			return nil, "", "", errors.New("cannot read native credential file")
+		}
 	}
-	return parseCredential(a.Provider, data)
+	return data, "", "", nil
 }
 
 func parseCredential(provider string, data []byte) (model.Credential, bool, error) {

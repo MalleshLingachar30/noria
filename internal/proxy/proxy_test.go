@@ -23,6 +23,28 @@ import (
 
 type fakeBackend struct{}
 
+type expiredClaudeBackend struct{ fakeBackend }
+
+func (expiredClaudeBackend) Credentials(context.Context, model.Account) (model.Credential, error) {
+	return model.Credential{}, errors.New("native credential refresh failed; run account login: OAuth refresh rejected; sign in again; secret-not-for-client")
+}
+
+func TestExpiredClaudeAccountReportsReloginInsteadOfQuota(t *testing.T) {
+	server, local := fixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("unusable Claude credentials must not reach upstream")
+	}), "claude", 1)
+	// Replace the fixture backend to simulate expired, unrefreshable OAuth.
+	// The scheduler still sees an enabled account with no quota blockers.
+	// A credential rejection must be distinguishable from an empty quota pool.
+	// The synthetic sensitive suffix must never be sent to the client.
+	server.backend = expiredClaudeBackend{}
+	response := post(t, local.URL+"/claude/v1/messages", `{"model":"claude-haiku-5-5"}`)
+	text := read(t, response)
+	if response.StatusCode != http.StatusServiceUnavailable || !strings.Contains(text, "sign in again") || strings.Contains(text, "secret-not-for-client") || strings.Contains(text, "refresh quota") {
+		t.Fatalf("Claude account auth problem incorrectly reported: %d %s", response.StatusCode, text)
+	}
+}
+
 func (fakeBackend) Credentials(_ context.Context, account model.Account) (model.Credential, error) {
 	return model.Credential{Token: "token-" + account.ID, AccountID: "org-" + account.ID}, nil
 }
