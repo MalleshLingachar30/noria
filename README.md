@@ -29,6 +29,8 @@ Codex / Claude Code ─────────┬──────────
 
 Noria optimizes the allowances you already have; it doesn't generate extra quota or guarantee work can continue after every account is exhausted.
 
+*Claude Code smart routing is experimental. OAuth token refresh and proxy compatibility are still being refined, so you may encounter bugs.*
+
 ## Install
 
 **macOS and Linux**
@@ -43,7 +45,7 @@ curl -fsSL https://noria.ashray.xyz/install.sh | sh
 irm https://noria.ashray.xyz/install.ps1 | iex
 ```
 
-On macOS you also get a native menu bar app for account management, quota usage, and Start/Stop controls.
+The installer includes a native Swift menu bar app on macOS and a lightweight Go tray app on Windows and Linux for account management, quota usage, and Start/Stop controls. Linux requires a desktop with a StatusNotifierItem/AppIndicator tray host.
 
 ## Set up once
 
@@ -73,10 +75,11 @@ noria quota refresh     # Fetch a fresh usage snapshot
 noria health            # Check local routing configuration
 noria stop              # Return managed clients to direct provider routing
 noria start             # Start routing again
-noria upgrade           # Upgrade the CLI and macOS menu bar app
+noria upgrade           # Upgrade the CLI and matching desktop app
+noria tray open         # Open the Windows/Linux tray (macOS: noria menubar open)
 ```
 
-Accounts are displayed by **email address by default**. You can optionally set aliases, enable or disable individual accounts, and sign in again from the CLI or the macOS menu bar.
+Accounts are displayed by **email address by default**. You can optionally set aliases, enable or disable individual accounts, and sign in again from the CLI or desktop tray/menu bar.
 
 Everything Noria manages lives locally. Its gateway runs on loopback, and each upstream account has separate credentials. Model requests still go to their respective provider—Noria is a router, not a local model.
 
@@ -88,7 +91,7 @@ The [architecture guide](https://noria.ashray.xyz/docs/architecture) explains th
 
 ## Develop
 
-Noria is written in Go. Its macOS menu bar is a native Swift wrapper over the CLI, which owns accounts, routing, settings, and updates. The website uses Astro and ZueDocs.
+Noria is written in Go. Its macOS menu bar remains native Swift; Windows and Linux use `gogpu/systray` in a separate Go executable. All desktop controls wrap the CLI, which owns accounts, routing, settings, and updates. The website uses Astro and ZueDocs.
 
 ```sh
 make check

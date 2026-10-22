@@ -26,6 +26,8 @@ Noria doesn't change your normal client login to add accounts to the pool. If yo
 
 Codex and Claude Code use native protocols, which can evolve over time. Locally tested versions have passed ordinary session and failover fixtures, but live subscription behavior and individual desktop hosts may vary.
 
+Claude Code smart routing is currently **experimental**. OAuth refresh and proxy compatibility are still being worked on, and some sessions may fail.
+
 Some applications have their own provider configuration or run remotely. These need a reachable local Noria endpoint and may not be configurable with the same settings as a local terminal client.
 
 ## Credentials and access

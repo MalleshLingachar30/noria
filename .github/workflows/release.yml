@@ -117,8 +117,48 @@ jobs:
           path: dist/*.tar.gz
           if-no-files-found: error
 
+  build-tray:
+    needs: quality
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Build matching CLI and Go tray bundle
+        shell: bash
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p stage dist
+          ext=""
+          gui_flags=""
+          if [ "$GOOS" = windows ]; then ext=.exe; gui_flags=' -H windowsgui'; fi
+          go build -mod=readonly -trimpath \
+            -ldflags="-s -w -X ${{ env.CLI_MODULE }}/internal/buildinfo.Version=$VERSION" \
+            -o "stage/noria$ext" ./cmd/noria
+          go build -mod=readonly -trimpath \
+            -ldflags="-s -w -X main.version=$VERSION$gui_flags" \
+            -o "stage/noria-tray$ext" ./cmd/noria-tray
+          cp LICENSE THIRD_PARTY_NOTICES.md stage/
+          tar -czf "dist/noria_${GOOS}_${GOARCH}.tar.gz" -C stage "noria$ext" "noria-tray$ext" LICENSE THIRD_PARTY_NOTICES.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tray-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
   github-release:
-    needs: [build-binaries, build-menubar]
+    needs: [build-binaries, build-menubar, build-tray]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -128,10 +168,12 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - name: Verify six binaries and two apps; generate checksums
+      - name: Verify six binaries, two macOS apps and four tray bundles; generate checksums
         run: |
           test "$(find dist -maxdepth 1 -type f -name 'noria_*' ! -name '*.tar.gz' | wc -l)" -eq 6
           test "$(find dist -maxdepth 1 -type f -name 'noria_darwin_*.tar.gz' | wc -l)" -eq 2
+          test "$(find dist -maxdepth 1 -type f -name 'noria_linux_*.tar.gz' | wc -l)" -eq 2
+          test "$(find dist -maxdepth 1 -type f -name 'noria_windows_*.tar.gz' | wc -l)" -eq 2
           (cd dist && sha256sum noria_* > SHA256SUMS)
           cp LICENSE THIRD_PARTY_NOTICES.md dist/
           python3 scripts/release.py notes "$GITHUB_REF_NAME" > release-notes.md
@@ -171,6 +213,9 @@ jobs:
             "$NORIA_INSTALL_DIR/Noria.app/Contents/MacOS/noria-menubar" --check
             "$NORIA_INSTALL_DIR/Noria.app/Contents/MacOS/noria-menubar" --validate-status-json apps/menubar/Tests/status.json
             "$NORIA_INSTALL_DIR/Noria.app/Contents/MacOS/noria-menubar" --validate-compact-status-json apps/menubar/Tests/compact-status.json
+          else
+            "$NORIA_INSTALL_DIR/noria-tray" --check
+            "$NORIA_INSTALL_DIR/noria" tray --help
           fi
       - name: Verify native Windows install
         if: runner.os == 'Windows'
@@ -179,8 +224,13 @@ jobs:
           $env:NORIA_VERSION = $env:GITHUB_REF_NAME.Substring(1)
           $env:NORIA_HOME = Join-Path $env:RUNNER_TEMP 'noria-smoke'
           $env:NORIA_INSTALL_DIR = Join-Path $env:RUNNER_TEMP 'noria-install'
+          $env:NORIA_NO_LAUNCH = '1'
           & ./scripts/install.ps1
           $exe = Join-Path $env:NORIA_INSTALL_DIR 'noria.exe'
+          $tray = Join-Path $env:NORIA_INSTALL_DIR 'noria-tray.exe'
+          if (-not (Test-Path $tray)) { throw 'Windows tray executable missing' }
+          & $tray --check
+          if ($LASTEXITCODE -ne 0) { throw 'Windows tray self-check failed' }
           if ((& $exe --version) -ne "noria $env:NORIA_VERSION") { throw 'Native install version mismatch' }
           & $exe --help
           & $exe status --json | ConvertFrom-Json | Out-Null
@@ -189,8 +239,12 @@ jobs:
           # Exercise the detached new-binary helper against a private copy;
           # this must never modify an actual user installation.
           $pending = Join-Path $env:NORIA_INSTALL_DIR '.noria-upgrade-test.exe'
+          $trayPending = Join-Path $env:NORIA_INSTALL_DIR '.noria-tray-upgrade-test.exe'
           Copy-Item $exe $pending
-          & $pending __apply-windows-upgrade $exe 'false' $env:NORIA_VERSION --home $env:NORIA_HOME
+          Copy-Item $tray $trayPending
+          & $pending __apply-windows-upgrade $exe 'false' $env:NORIA_VERSION $trayPending --home $env:NORIA_HOME
           if ($LASTEXITCODE -ne 0) { throw 'Native deferred Windows upgrade helper failed' }
           $report = Get-Content (Join-Path $env:NORIA_HOME 'upgrade.json') -Raw | ConvertFrom-Json
           if (-not $report.updated) { throw 'Native Windows upgrade did not commit its state' }
+          & $tray --check
+          if ($LASTEXITCODE -ne 0) { throw 'Native Windows tray upgrade failed' }

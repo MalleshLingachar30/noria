@@ -24,7 +24,7 @@ func preferencesCommand(home string, args []string, out io.Writer) error {
 	}
 	args = filtered
 	if len(args) > 0 && isHelp(args[0]) {
-		fmt.Fprintln(out, "Usage: noria preferences [start-at-login|menubar-at-login|auto-update on|off] [--json]\nAll preferences are owned by the CLI. Quitting the menu bar does not stop routing.")
+		fmt.Fprintln(out, "Usage: noria preferences [start-at-login|menubar-at-login|tray-at-login|auto-update on|off] [--json]\nAll preferences are owned by the CLI. Quitting the desktop UI does not stop routing.")
 		return nil
 	}
 	if e := config.Init(home); e != nil {
@@ -51,6 +51,13 @@ func preferencesCommand(home string, args []string, out io.Writer) error {
 			if e = menuLogin(home, exe, enabled); e != nil {
 				return e
 			}
+		case "tray-at-login":
+			if runtime.GOOS == "darwin" {
+				return errors.New("the native tray app is available on Windows and Linux")
+			}
+			if e = trayLogin(home, exe, enabled); e != nil {
+				return e
+			}
 		case "auto-update":
 		default:
 			return errors.New("unknown preference")
@@ -60,6 +67,8 @@ func preferencesCommand(home string, args []string, out io.Writer) error {
 			case "start-at-login":
 				c.StartAtLogin = enabled
 			case "menubar-at-login":
+				c.MenuBarAtLogin = enabled
+			case "tray-at-login":
 				c.MenuBarAtLogin = enabled
 			case "auto-update":
 				c.AutoUpdate = enabled
@@ -79,10 +88,17 @@ func preferencesCommand(home string, args []string, out io.Writer) error {
 		return e
 	}
 	v := map[string]bool{"start_at_login": c.StartAtLogin, "menubar_at_login": c.MenuBarAtLogin, "auto_update": c.AutoUpdate}
+	if runtime.GOOS != "darwin" {
+		v["tray_at_login"] = c.MenuBarAtLogin
+	}
 	if asJSON {
 		return printJSON(out, v)
 	}
-	fmt.Fprintf(out, "Start at login: %t\nMenu bar at login: %t\nAutomatic updates: %t\n", c.StartAtLogin, c.MenuBarAtLogin, c.AutoUpdate)
+	name := "Menu bar"
+	if runtime.GOOS != "darwin" {
+		name = "Tray"
+	}
+	fmt.Fprintf(out, "Start at login: %t\n%s at login: %t\nAutomatic updates: %t\n", c.StartAtLogin, name, c.MenuBarAtLogin, c.AutoUpdate)
 	return nil
 }
 func menuPath(exe string) string { return filepath.Join(filepath.Dir(exe), "Noria.app") }

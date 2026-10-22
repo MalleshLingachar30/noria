@@ -107,7 +107,9 @@ func updateCommand(home string, args []string, out, errOut io.Writer) error {
 	}
 	appSource := ""
 	appTarget := filepath.Join(filepath.Dir(exe), "Noria.app")
-	if runtime.GOOS == "darwin" {
+	traySource := ""
+	trayTarget := trayBinary(exe)
+	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" || runtime.GOOS == "linux" {
 		archive := filepath.Join(temp, "release.tar.gz")
 		if e = distribution.Download(ctx, release, distribution.ArchiveName(), archive); e != nil {
 			return e
@@ -117,9 +119,16 @@ func updateCommand(home string, args []string, out, errOut io.Writer) error {
 			return e
 		}
 		source = filepath.Join(unpacked, "noria")
-		appSource = filepath.Join(unpacked, "Noria.app")
-		if e = verifyApp(appSource); e != nil {
-			return e
+		if runtime.GOOS == "darwin" {
+			appSource = filepath.Join(unpacked, "Noria.app")
+			if e = verifyApp(appSource); e != nil {
+				return e
+			}
+		} else {
+			if runtime.GOOS == "windows" {
+				source += ".exe"
+			}
+			traySource = filepath.Join(unpacked, distribution.TrayName())
 		}
 	} else {
 		if e = distribution.Download(ctx, release, distribution.BinaryName(), source); e != nil {
@@ -166,6 +175,15 @@ func updateCommand(home string, args []string, out, errOut io.Writer) error {
 	if err != nil || strings.TrimSpace(string(versionOutput)) != "noria "+status.Latest {
 		return errors.New("downloaded executable did not pass version verification")
 	}
+	if traySource != "" {
+		if err := os.Chmod(traySource, 0755); err != nil {
+			return err
+		}
+		probe := exec.CommandContext(ctx, traySource, "--check")
+		if err := probe.Run(); err != nil {
+			return errors.New("downloaded tray executable did not pass validation")
+		}
+	}
 	if running {
 		if e = stopRuntimeForUpdate(home, exe); e != nil {
 			return e
@@ -175,18 +193,32 @@ func updateCommand(home string, args []string, out, errOut io.Writer) error {
 		// Windows cannot reliably rename a currently executing .exe. The already
 		// verified new executable completes the replacement in a separate process
 		// after this invocation has released the image file.
-		if e = scheduleWindowsUpgrade(home, source, exe, running, status.Latest); e != nil {
+		if e = scheduleWindowsUpgrade(home, source, exe, traySource, running, status.Latest); e != nil {
 			if running {
 				_ = startService(home)
 			}
 			return e
 		}
 		status.Deferred = true
-		status.Message = "Verified upgrade staged. Noria will finish replacing the executable after this command exits."
+		status.Message = "Verified upgrade staged. Noria will finish replacing the CLI and tray after this command exits."
 		record()
 		return printJSON(out, status)
 	}
+	var rollbackTray func() error
+	var finishTray func()
+	if traySource != "" {
+		rollbackTray, finishTray, e = distribution.Swap(traySource, trayTarget, 0755)
+		if e != nil {
+			if running {
+				_ = startService(home)
+			}
+			return e
+		}
+	}
 	if e = distribution.Replace(source, exe, 0755); e != nil {
+		if rollbackTray != nil {
+			_ = rollbackTray()
+		}
 		if running {
 			_ = startService(home)
 		}
@@ -208,6 +240,9 @@ func updateCommand(home string, args []string, out, errOut io.Writer) error {
 	if running {
 		if e = startService(home); e != nil {
 			_ = restorePreviousBinary(exe)
+			if rollbackTray != nil {
+				_ = rollbackTray()
+			}
 			if changedApp {
 				_ = os.RemoveAll(appTarget)
 				_ = os.Rename(appTarget+".previous", appTarget)
@@ -215,6 +250,9 @@ func updateCommand(home string, args []string, out, errOut io.Writer) error {
 			_ = startService(home)
 			return errors.New("updated service did not become healthy; restored the previous release")
 		}
+	}
+	if finishTray != nil {
+		finishTray()
 	}
 	status.Updated = true
 	status.Message = "Updated to " + status.Latest

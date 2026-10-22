@@ -23,6 +23,8 @@ noria integrate claude --yes
 
 This configures Claude Code's `settings.json` to use Noria's local base URL and credential helper. It applies wherever that settings file is used.
 
+*Experimental:* Claude Code smart routing may have bugs while OAuth token refresh and proxy compatibility are being improved.
+
 For both providers, **restart clients that were already open** after the change.
 
 ## Different configuration folders

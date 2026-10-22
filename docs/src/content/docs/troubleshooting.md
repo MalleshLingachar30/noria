@@ -69,3 +69,7 @@ Run `noria start`, then `noria health`. If startup fails, another process may be
 Noria can't route around an exhausted pool. It waits for an applicable reset or a usable account to be added. A weekly limit can block an account even if its five-hour window still has capacity.
 
 If you need help, share the Noria and native-client versions plus a redacted error. **Never share account credentials, token-helper output, or conversation contents.**
+
+## Linux tray icon is missing
+
+The Linux tray needs a graphical session with a StatusNotifierItem/AppIndicator host. Check that your desktop supports AppIndicators (GNOME Shell often needs an extension), then run `noria tray open`. Install `zenity` or `kdialog` for the tray's native confirmation and folder dialogs. The CLI and router still work normally on headless machines.

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"runtime"
 	"time"
 )
 
@@ -47,6 +48,9 @@ func dashboard(home string) (map[string]any, error) {
 	v["integrations"] = views
 	v["client_roots"] = nativeRoots()
 	v["preferences"] = map[string]bool{"start_at_login": c.StartAtLogin, "menubar_at_login": c.MenuBarAtLogin, "auto_update": c.AutoUpdate}
+	if runtime.GOOS != "darwin" {
+		v["preferences"].(map[string]bool)["tray_at_login"] = c.MenuBarAtLogin
+	}
 	v["observed_at"] = time.Now()
 	return v, nil
 }

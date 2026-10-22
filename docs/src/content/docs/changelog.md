@@ -5,6 +5,13 @@ order: 11
 category: Reference
 ---
 
+## 0.4.0 · October 23, 2026
+
+- Added lightweight Windows and Linux tray apps built with `gogpu/systray`, offering the same account management, quota/reset displays, Start/Stop, health checks, client configuration, login preferences, and update controls as the macOS menu bar. The macOS app remains native Swift.
+- Added per-user desktop autostart for Windows and mainstream Linux desktop sessions, platform-native confirmation and folder dialogs, and tray startup/quit CLI commands. Quitting the tray never stops routing.
+- Updated verified installers, paired CLI/tray upgrades, and release assets for Windows and Linux on x64 and ARM64, with safe replacement of running Windows tray executables.
+- Clarified that smart Claude Code routing is experimental while OAuth refresh and proxy compatibility are refined. No Claude proxy or authentication implementation was changed in this release.
+
 ## 0.3.6 · October 20, 2026
 
 - Fixed Claude Code requests failing after an account's OAuth access token expires. Noria now refreshes the isolated account credentials before proxying requests, rotates the refresh token safely under the native profile lock, and preserves existing credential settings without an extra sign-in or model prompt.

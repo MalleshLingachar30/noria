@@ -5,7 +5,7 @@ order: 7
 category: Reference
 ---
 
-The `noria` CLI is the source of truth for the background service and the macOS menu bar. Add `--help` to most commands for available options.
+The `noria` CLI is the source of truth for the background service and all native desktop UIs. Add `--help` to most commands for available options.
 
 ## Start and stop
 
@@ -52,10 +52,13 @@ For clients using a nonstandard configuration folder, pass `--client-home` with 
 ```sh
 noria preferences start-at-login on
 noria preferences menubar-at-login on    # macOS
+noria preferences tray-at-login on        # Windows/Linux
 noria preferences auto-update on
 noria upgrade --check
 noria upgrade
 noria menubar open                      # macOS
+noria tray open                         # Windows/Linux
+noria tray quit                         # Leave routing running
 ```
 
 Change `on` to `off` to disable a preference. Upgrades wait for active requests to finish.

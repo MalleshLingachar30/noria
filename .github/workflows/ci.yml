@@ -49,6 +49,18 @@ jobs:
           binary=dist/noria
           if [ "$RUNNER_OS" = Windows ]; then binary=dist/noria.exe; fi
           go build -o "$binary" ./cmd/noria
+      - name: Build and smoke desktop tray
+        if: runner.os != 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$RUNNER_OS" = Windows ]; then
+            go build -ldflags='-H windowsgui' -o dist/noria-tray.exe ./cmd/noria-tray
+            dist/noria-tray.exe --check
+          else
+            CGO_ENABLED=0 go build -o dist/noria-tray ./cmd/noria-tray
+            dist/noria-tray --check
+          fi
       - name: Background service smoke (isolated state)
         env:
           NORIA_TEST_SKIP_LOGIN: "1"

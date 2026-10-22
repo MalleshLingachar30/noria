@@ -203,6 +203,12 @@ func BinaryName() string {
 	return "noria_" + runtime.GOOS + "_" + runtime.GOARCH + suffix
 }
 func ArchiveName() string { return "noria_" + runtime.GOOS + "_" + runtime.GOARCH + ".tar.gz" }
+func TrayName() string {
+	if runtime.GOOS == "windows" {
+		return "noria-tray.exe"
+	}
+	return "noria-tray"
+}
 func Download(ctx context.Context, r Release, name, dest string) error {
 	url, e := assetURL(r, "SHA256SUMS")
 	if e != nil {

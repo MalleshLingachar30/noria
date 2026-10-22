@@ -50,6 +50,8 @@ func Run(args []string, stdout, stderr io.Writer) error {
 	switch args[0] {
 	case "__menubar-reopen":
 		return delayedMenuHome(home, args[1:])
+	case "__tray-reopen":
+		return delayedTrayHome(home, args[1:])
 	case "__sync-updates":
 		if e := config.Init(home); e != nil {
 			return e
@@ -88,6 +90,8 @@ func Run(args []string, stdout, stderr io.Writer) error {
 		return healthCommand(home, args[1:], stdout)
 	case "menubar":
 		return menubar(home, args[1:], stdout, stderr)
+	case "tray":
+		return trayCommand(home, args[1:], stdout)
 	case "upgrade":
 		return updateCommand(home, args[1:], stdout, stderr)
 	case "init":
@@ -140,6 +144,7 @@ Commands:
   integrations [--json]         inspect configured client profiles
   preferences [key on|off]      login and automatic update settings
   menubar open|install          native macOS menu bar
+  tray open|quit                native Windows/Linux tray app
   upgrade [--check]             verified CLI and menu bar upgrades
   health [--json]               check gateway and client configuration
   status [--json]               inspect accounts and routing

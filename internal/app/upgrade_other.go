@@ -7,7 +7,7 @@ import (
 	"io"
 )
 
-func scheduleWindowsUpgrade(string, string, string, bool, string) error {
+func scheduleWindowsUpgrade(string, string, string, string, bool, string) error {
 	return errors.New("Windows upgrade helper is unavailable on this platform")
 }
 

@@ -7,13 +7,15 @@ category: Get started
 
 After setup, Noria stays out of your way. Just open Codex or Claude Code normally.
 
-## On macOS: the menu bar
+## Desktop tray and menu bar
 
 Click the **N** icon to see your accounts, remaining allowance, and reset times. Opening the menu refreshes usage in the background. Only providers you've added are shown, and a quota window appears only if the provider reports it—for example, Codex plans without a five-hour limit won't show an empty five-hour row.
 
+macOS uses the native Swift menu bar. Windows and Linux use a Go tray app (`noria tray open`); its usage updates periodically while the app is open. On Linux, your desktop needs a StatusNotifierItem/AppIndicator host; install `zenity` or `kdialog` for confirmation, alias, and folder-picker dialogs.
+
 The main menu stays focused on account usage, **Start/Stop**, and **Refresh Usage**. Under **Configure**, you'll find **Configure Codex**, **Configure Claude Code**, account additions, Health Check, login preferences, updates, and documentation. To relogin, rename, or disable an existing account, use its submenu.
 
-Closing the menu bar app **does not** stop the background service.
+Quitting the menu bar/tray app **does not** stop the background service.
 
 ## In your terminal
 
@@ -33,13 +35,14 @@ Start and Stop return immediately; you don't need to leave a terminal open.
 
 ## Start at login
 
-On macOS, **Launch Menu Bar at Login** and **Start Noria at Login** are separate settings. You can have one without the other.
+**Launch Menu Bar/Tray at Login** and **Start Noria at Login** are separate settings. You can have one without the other.
 
 The CLI equivalents are:
 
 ```sh
 noria preferences start-at-login on
 noria preferences menubar-at-login on    # macOS
+noria preferences tray-at-login on        # Windows and Linux
 noria preferences auto-update on
 ```
 
@@ -47,7 +50,7 @@ Use `off` to disable a preference.
 
 ## Upgrades
 
-Choose **Check for Updates…** in the macOS menu, or run:
+Choose **Check for Updates…** in the desktop menu, or run:
 
 ```sh
 noria upgrade --check
