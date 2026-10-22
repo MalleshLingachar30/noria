@@ -1,0 +1,74 @@
+name: Docs
+
+# Filter before calling Vercel: code-only pushes create no deployment.
+# Root installers are shipped on the website, so include both source files.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'scripts/install.sh'
+      - 'scripts/install.ps1'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'scripts/install.sh'
+      - 'scripts/install.ps1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.0'
+      - name: Install docs dependencies
+        run: bun install --frozen-lockfile
+      - name: Verify website installers match native installers
+        run: |
+          diff -q ../scripts/install.sh public/install.sh
+          diff -q ../scripts/install.ps1 public/install.ps1
+      - name: Test deployment rules and site output
+        run: bun run test:deployment
+      - name: Test HTML postprocessing
+        run: bun run test:design
+      - name: Validate Astro
+        run: bun run check
+      - name: Build and stage static output
+        if: >-
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          github.ref == 'refs/heads/main'
+        run: |
+          bun run build
+          node scripts/prepare-prebuilt.mjs
+      - name: Deploy to Vercel
+        if: >-
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          github.ref == 'refs/heads/main'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$VERCEL_TOKEN" || -z "$VERCEL_ORG_ID" || -z "$VERCEL_PROJECT_ID" ]]; then
+            echo 'Missing Vercel GitHub Actions secret or project variables.' >&2
+            exit 1
+          fi
+          npx --yes vercel@latest deploy --prebuilt --prod --yes --non-interactive

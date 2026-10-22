@@ -44,7 +44,6 @@ Preserve three key invariants: healthy sessions remain on their account, differe
 make docs-install
 make docs-dev
 make docs-check
-make docs-build
 ```
 
 Keep ZueDocs for the shared documentation layouts and use project-local styles and components for Noria. Run the check and build serially, not simultaneously.

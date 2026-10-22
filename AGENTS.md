@@ -14,7 +14,7 @@ Accounts display email by default; aliases are optional and never replace immuta
 
 ## Checks
 
-Run `make check`, `go test -race ./...`, native persistent-config fixtures, and cross-platform service tests. Build Swift for arm64 and x86_64, verify signatures, and exercise CLI/menu JSON. Run `make docs-check` then `make docs-build` serially, never concurrently.
+Run `make check`, `go test -race ./...`, native persistent-config fixtures, and cross-platform service tests. Build Swift for arm64 and x86_64, verify signatures, and exercise CLI/menu JSON. Use `make docs-check` for routine Astro validation; the deploy workflow builds the site in CI.
 
 Code files should stay below 1000 lines. Add tests for lifecycle idempotence, config roundtrips/conflicts, stable aliases, atomic reservations, safe early failover, deferred updates, and release checksum/archive validation.
 
@@ -24,4 +24,4 @@ Use the Zodex-style checksum-verified CLI download/extract path with an ad-hoc s
 
 Update VERSION and the manual changelog, verify CI, then push the release tag. Confirm six binaries, two macOS archives, checksums, native installer smoke tests, and docs deployment. Never publish from a concurrently changing checkout or discard someone else's worktree changes.
 
-The docs site is a separate Bun/Astro workspace connected to Vercel directly through GitHub. `docs/vercel.json` enables `main` deployments and invokes `docs/scripts/should-build.mjs` as the ignored-build step. It builds for `docs/**` and either native root installer, but skips Go/code-only commits. Keep this logic tested with `cd docs && bun run test:deployment`. Do not create redundant GitHub deployment actions or store Vercel CLI tokens in repository secrets.
+The docs site is a separate Bun/Astro workspace. Its production deployment is managed by `.github/workflows/docs-deploy.yml` for changes to `docs/**` or the two root installer scripts; unrelated Go/Swift code pushes create **no Vercel deployment**. `docs/vercel.json` disables Git-triggered deployments and has no `ignoreCommand`. Keep the GitHub connection and Vercel Root Directory `docs`. CI builds static output and deploys via `--prebuilt` using the project-scoped `VERCEL_TOKEN` GitHub Actions secret and `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` Actions variables. Keep this path filter tested with `cd docs && bun run test:deployment`; don't introduce duplicate deployment triggers or account-wide tokens into CI.

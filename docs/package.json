@@ -9,7 +9,7 @@
     "build": "astro build && node scripts/finalize-html.mjs",
     "preview": "astro preview",
     "check": "astro check",
-    "test:deployment": "node --test scripts/should-build.test.mjs",
+    "test:deployment": "node --test scripts/deployment.test.mjs scripts/prepare-prebuilt.test.mjs",
     "test:design": "node --test scripts/finalize-html.test.mjs"
   },
   "devDependencies": {

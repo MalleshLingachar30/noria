@@ -98,7 +98,8 @@ make check
 go test -race ./...
 make docs-install
 make docs-check
-make docs-build
 ```
+
+The ZueDocs website deploys automatically from the `Docs` GitHub Actions workflow when `docs/**` or either root installer changes on `main`. Unrelated Go/Swift pushes do not create Vercel deployments. The workflow builds Astro in CI and deploys the prebuilt site using a project-scoped GitHub Actions token.
 
 See [Contributing](CONTRIBUTORS.md). Licensed under [Apache-2.0](LICENSE).

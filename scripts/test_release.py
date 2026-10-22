@@ -46,13 +46,21 @@ class ReleaseTests(unittest.TestCase):
         for phrase in ("npm-publish", "npm install", "npm publish", "setup-node", "NODE_AUTH_TOKEN"):
             self.assertNotIn(phrase, workflow)
 
-    def test_vercel_owns_docs_deployments_without_repository_credentials(self):
-        """Deployments use the Vercel GitHub integration, not Actions secrets."""
+    def test_docs_only_github_actions_deployment(self):
+        """Unrelated code pushes must never request a Vercel deployment."""
         config = json.loads((ROOT / "docs/vercel.json").read_text())
-        self.assertEqual(config["ignoreCommand"], "node scripts/should-build.mjs")
-        self.assertEqual(config["git"]["deploymentEnabled"], {"main": True, "*": False})
-        self.assertFalse((ROOT / ".github/workflows/docs-deploy.yml").exists())
-        self.assertFalse((ROOT / "scripts/deploy_docs.py").exists())
+        self.assertFalse(config["git"]["deploymentEnabled"])
+        self.assertNotIn("ignoreCommand", config)
+        workflow = (ROOT / ".github/workflows/docs-deploy.yml").read_text()
+        for path in ('docs/**', 'scripts/install.sh', 'scripts/install.ps1'):
+            self.assertIn(f"- '{path}'", workflow)
+        for required in ("branches: [main]", "VERCEL_TOKEN", "vars.VERCEL_ORG_ID",
+                         "vars.VERCEL_PROJECT_ID", "deploy --prebuilt --prod",
+                         "bun run build", "scripts/prepare-prebuilt.mjs"):
+            self.assertIn(required, workflow)
+        self.assertNotIn('"**"', workflow)
+        self.assertNotIn('"*"', workflow)
+        self.assertFalse((ROOT / "docs/scripts/should-build.mjs").exists())
 
 
 if __name__ == "__main__":
