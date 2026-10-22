@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -51,17 +50,32 @@ func trayCommand(home string, args []string, out io.Writer) error {
 		if len(args) != 1 {
 			return errors.New("usage: noria tray open")
 		}
-		if runtime.GOOS == "linux" && (os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" ||
-			(os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "")) {
-			return errors.New("the tray requires a graphical desktop session and a D-Bus StatusNotifierItem host")
+		env, err := desktopTrayEnvironment()
+		if err != nil {
+			return err
 		}
 		binary := trayBinary(exe)
-		if info, err := os.Stat(binary); err != nil || !info.Mode().IsRegular() {
-			return errors.New("Noria tray is not installed beside the CLI; install or upgrade Noria")
+		if err := ensureTrayInstalled(home, exe); err != nil {
+			return err
+		}
+		// A missing GNOME tray extension should not prevent Noria from running:
+		// gogpu/systray will register as soon as a tray host appears. Warn instead
+		// of claiming the icon is visible when no host is currently available.
+		checkCtx, checkCancel := context.WithTimeout(context.Background(), 4*time.Second)
+		defer checkCancel()
+		check := exec.CommandContext(checkCtx, binary, "--check-host")
+		check.Env = env
+		if note, err := check.CombinedOutput(); err != nil {
+			detail := strings.TrimSpace(string(note))
+			if detail == "" {
+				detail = "the desktop's status icon service did not respond"
+			}
+			fmt.Fprintln(out, "Desktop tray host not ready:", detail)
 		}
 		cmd := exec.Command(binary, "--home", home)
 		cmd.Dir = home
 		cmd.Stdin, cmd.Stdout, cmd.Stderr = nil, io.Discard, io.Discard
+		cmd.Env = env
 		host.Detach(cmd)
 		if err := cmd.Start(); err != nil {
 			return err
@@ -69,7 +83,7 @@ func trayCommand(home string, args []string, out io.Writer) error {
 		if err := cmd.Process.Release(); err != nil {
 			return err
 		}
-		fmt.Fprintln(out, "Opened Noria tray")
+		fmt.Fprintln(out, "Started Noria tray")
 		return nil
 	case "quit":
 		if len(args) != 1 {

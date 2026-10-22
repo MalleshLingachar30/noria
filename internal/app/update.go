@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -257,6 +258,17 @@ func updateCommand(home string, args []string, out, errOut io.Writer) error {
 	status.Updated = true
 	status.Message = "Updated to " + status.Latest
 	record()
+	// The tray binary has already been installed above. Launch it after the
+	// upgrade when we're in an interactive desktop session. Headless/systemd
+	// updates remain quiet; an already-open tray detects the new CLI version and
+	// relaunches itself, while XDG autostart covers the next graphical login.
+	if traySource != "" && runtime.GOOS == "linux" && os.Getenv("NORIA_NO_LAUNCH") != "1" {
+		if _, err := desktopTrayEnvironment(); err == nil {
+			if err := trayCommand(home, []string{"open"}, io.Discard); err != nil {
+				fmt.Fprintln(errOut, "Noria updated, but the desktop tray could not open:", err)
+			}
+		}
+	}
 
 	return printJSON(out, status)
 }

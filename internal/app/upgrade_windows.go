@@ -101,6 +101,11 @@ func scrubNativeUpgradeEnvironment() []string {
 	environment := make([]string, 0, len(os.Environ()))
 	for _, value := range os.Environ() {
 		key, _, _ := strings.Cut(value, "=")
+		// Used by CI/native installation smoke tests to suppress GUI startup.
+		if key == "NORIA_NO_LAUNCH" {
+			environment = append(environment, value)
+			continue
+		}
 		if strings.HasPrefix(key, "NORIA_") || strings.HasPrefix(key, "OPENAI_") ||
 			strings.HasPrefix(key, "ANTHROPIC_") || strings.HasPrefix(key, "CLAUDE_") ||
 			strings.HasPrefix(key, "CODEX_") {
@@ -223,7 +228,7 @@ func applyWindowsUpgrade(home string, args []string, out io.Writer) error {
 			return errors.New("new service failed to restart; restored previous executable")
 		}
 	}
-	if trayWasRunning {
+	if os.Getenv("NORIA_NO_LAUNCH") != "1" {
 		reopenWindowsTray(target, home)
 	}
 	status := updateStatus{Current: args[2], Latest: args[2], Updated: true, CheckedAt: time.Now(), Message: "Upgraded to " + args[2]}

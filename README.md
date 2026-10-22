@@ -45,7 +45,7 @@ curl -fsSL https://noria.ashray.xyz/install.sh | sh
 irm https://noria.ashray.xyz/install.ps1 | iex
 ```
 
-The installer includes a native Swift menu bar app on macOS and a lightweight Go tray app on Windows and Linux for account management, quota usage, and Start/Stop controls. Linux requires a desktop with a StatusNotifierItem/AppIndicator tray host.
+The installer includes a native Swift menu bar app on macOS and a lightweight Go tray app on Windows and Linux for account management, quota usage, and Start/Stop controls. The tray opens on installation, starts at login by default, and reopens on upgrades. Most mainstream Linux desktops, including standard Ubuntu, KDE Plasma, and Linux Mint Cinnamon, have tray support already. Some GNOME installations need their AppIndicator extension enabled.
 
 ## Set up once
 

@@ -42,8 +42,16 @@ try {
     & $Binary init
     & $Binary --version
     if ($env:NORIA_NO_LAUNCH -ne '1') {
-        try { & $Binary preferences auto-update on | Out-Null } catch { Write-Warning 'Automatic updates could not be enabled. Set them from Configure in the tray.' }
+        try {
+            & $Binary preferences auto-update on | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Automatic update preference failed' }
+        } catch { Write-Warning 'Automatic updates could not be enabled. Set them from Configure in the tray.' }
+        try {
+            & $Binary preferences tray-at-login on | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Tray-at-login registration failed' }
+        } catch { Write-Warning 'Tray startup could not be registered. Enable it later with: noria preferences tray-at-login on' }
         & $Binary tray open
+        if ($LASTEXITCODE -ne 0) { Write-Warning 'Tray did not open. Run: noria tray open' }
     }
     Write-Host 'Add your accounts: noria account add codex (or claude)'
     Write-Host 'Configure once: noria integrate codex --yes'

@@ -31,6 +31,14 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual((ROOT / "scripts/install.ps1").read_bytes(),
                          (ROOT / "docs/public/install.ps1").read_bytes())
 
+    def test_tray_starts_at_install_and_persists_at_login(self):
+        shell = (ROOT / "scripts/install.sh").read_text()
+        windows = (ROOT / "scripts/install.ps1").read_text()
+        for content in (shell, windows):
+            self.assertIn("preferences tray-at-login on", content)
+            self.assertIn("tray open", content)
+            self.assertIn("NORIA_NO_LAUNCH", content)
+
     def test_node_and_npm_distribution_are_not_used(self):
         self.assertFalse((ROOT / "package.json").exists())
         self.assertFalse((ROOT / "bin/noria.js").exists())

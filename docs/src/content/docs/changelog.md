@@ -5,6 +5,12 @@ order: 11
 category: Reference
 ---
 
+## 0.4.1 · October 23, 2026
+
+- Windows and Linux installers now enable tray startup at login and launch the tray immediately in graphical sessions. Headless Linux installations remain usable without a desktop.
+- Tray apps automatically reopen after successful Windows/Linux upgrades. Updates started outside a Linux graphical session retain desktop autostart for the next login.
+- Added checksum-verified, on-demand installation of a missing tray companion to support older CLI-only installations. Improved Linux D-Bus session detection and diagnostics for GNOME desktops without an active AppIndicator host.
+
 ## 0.4.0 · October 23, 2026
 
 - Added lightweight Windows and Linux tray apps built with `gogpu/systray`, offering the same account management, quota/reset displays, Start/Stop, health checks, client configuration, login preferences, and update controls as the macOS menu bar. The macOS app remains native Swift.

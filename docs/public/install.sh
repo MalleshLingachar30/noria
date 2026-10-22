@@ -56,14 +56,19 @@ if [ "${NORIA_NO_LAUNCH:-0}" != 1 ]; then
   # Register the independent launchd updater immediately. It keeps checking
   # even if the menu bar is quit or the routing service is stopped.
   if ! "$install_dir/noria" preferences auto-update on >/dev/null; then
-    echo 'Automatic updates could not be scheduled. Re-enable them in the menu bar after login.' >&2
+    echo 'Automatic updates could not be scheduled. Re-enable them from Configure or the CLI.' >&2
+  fi
+  if [ "$os" = linux ]; then
+    if ! "$install_dir/noria" preferences tray-at-login on >/dev/null; then
+      echo 'Tray startup could not be registered. Enable it later with: noria preferences tray-at-login on' >&2
+    fi
   fi
 fi
 case ":${PATH:-}:" in *":$install_dir:"*) ;; *) printf '\nAdd this to your shell profile, then open a new terminal:\n  export PATH="%s:$PATH"\n' "$install_dir";; esac
 if [ "${NORIA_NO_LAUNCH:-0}" != 1 ]; then
   if [ "$os" = darwin ]; then
     "$install_dir/noria" menubar open
-  elif [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] && { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; }; then
+  elif [ "$os" = linux ] && { [ -n "${DISPLAY:-}" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; }; then
     "$install_dir/noria" tray open || echo 'You can open the desktop tray later with: noria tray open' >&2
   fi
 fi

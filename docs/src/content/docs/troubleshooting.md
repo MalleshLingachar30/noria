@@ -72,4 +72,4 @@ If you need help, share the Noria and native-client versions plus a redacted err
 
 ## Linux tray icon is missing
 
-The Linux tray needs a graphical session with a StatusNotifierItem/AppIndicator host. Check that your desktop supports AppIndicators (GNOME Shell often needs an extension), then run `noria tray open`. Install `zenity` or `kdialog` for the tray's native confirmation and folder dialogs. The CLI and router still work normally on headless machines.
+The Linux tray needs a graphical session with a StatusNotifierItem/AppIndicator host. Ubuntu Desktop, KDE, and Mint Cinnamon ordinarily provide one. On upstream GNOME, enable **AppIndicator and KStatusNotifierItem Support** from the Extensions app, then run `noria tray open`. Noria prints a diagnostic when no active tray host is detected and can register once it becomes available. Install `zenity` or `kdialog` for the tray's confirmation and folder dialogs. The CLI and router still work normally on headless machines.

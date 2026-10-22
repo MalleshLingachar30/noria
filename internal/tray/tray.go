@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -35,9 +34,8 @@ type app struct {
 }
 
 func Run(home, version string) error {
-	if runtime.GOOS == "linux" && (os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" ||
-		(os.Getenv("DISPLAY") == "" && os.Getenv("WAYLAND_DISPLAY") == "")) {
-		return errors.New("Noria tray requires a Linux graphical session with a D-Bus StatusNotifierItem host")
+	if err := prepareDesktop(); err != nil {
+		return err
 	}
 	cli, err := newCLI(home)
 	if err != nil {
