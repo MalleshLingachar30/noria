@@ -31,6 +31,8 @@ test('only website inputs trigger production docs deployment', () => {
   assert.match(workflow, /vars\.VERCEL_PROJECT_ID/);
   assert.match(workflow, /node scripts\/prepare-prebuilt\.mjs/);
   assert.match(workflow, /bun run build/);
+  assert.match(workflow, /working-directory: \./);
+  assert.match(workflow, /mv docs\/\.vercel\/output \.vercel\/output/);
 });
 
 test('the root installers and website installers are identical', () => {
